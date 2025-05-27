@@ -5,7 +5,7 @@ import re
 from xdsl.context import Context
 from xdsl.ir import Region, Block
 from xdsl.dialects import builtin
-from xdsl.dialects.builtin import ModuleOp, IntegerType, IntegerAttr, StringAttr
+from xdsl.dialects.builtin import ModuleOp, IntegerType, IntegerAttr, StringAttr, FunctionType
 from cobol_dialect import (
     COBOL,
     DeclareOp,
@@ -17,6 +17,7 @@ from cobol_dialect import (
     CobolStringType,
     CobolDecimalType,
     CobolConstantOp,
+    FuncOp,
 )
 
 # Regex for working-storage DECL
@@ -37,6 +38,16 @@ ADD_RE = re.compile(r'^ADD\s+(\w+)\s+TO\s+(\w+)$', re.IGNORECASE)
 
 # Regex for IF statements: IF LHS (> | < | =) RHS
 IF_RE = re.compile(r'^IF\s+(\w+)\s*([<>=])\s*(\w+|\d+)$', re.IGNORECASE)
+
+# Regex for PROGRAM-ID
+PROGRAM_ID_RE = re.compile(r'^PROGRAM-ID\.\s*(\w+)', re.IGNORECASE)
+
+def parse_program_id(lines):
+    for line in lines:
+        m = PROGRAM_ID_RE.match(line.strip())
+        if m:
+            return m.group(1)
+    return "MAIN"  # Default program name
 
 def parse_working_storage(lines):
     start = next(i for i, l in enumerate(lines) if 'WORKING-STORAGE SECTION' in l)
@@ -60,20 +71,36 @@ def parse_procedure(lines):
     # return raw statements (we’ll regex-parse them below)
     return [l.strip() for l in lines[idx+1:] if l.strip()]
 
-def translate_to_cobol_mlir(fields, stmts):
+def translate_to_cobol_mlir(program_name, fields, stmts):
     # 1) Context + dialects
     ctx = Context()
     ctx.register_dialect("builtin", builtin)
     ctx.register_dialect("cobol", COBOL)
 
-    # 2) Module + entry block
+    # 2) Module
     module = ModuleOp([])
-    entry  = module.regions[0].block
+    module_block = module.regions[0].block
+    
+    # 3) Create FuncOp for the COBOL program
+    # COBOL programs typically have no parameters or return values
+    func_type = FunctionType.from_lists([], [])
+    
+    func_op = FuncOp(
+        attributes={
+            'sym_name': StringAttr(program_name),
+            'function_type': func_type
+        },
+        regions=[Region(Block())]
+    )
+    module_block.add_op(func_op)
+    
+    # Get the function body block
+    entry = func_op.body.block
     var_map = {}
 
     decl_type = None
 
-    # 3) Declare & init WORKING-STORAGE
+    # 4) Declare & init WORKING-STORAGE
     for f in fields:
         name, pic = f['name'], f['pic']
         # choose COBOL type
@@ -112,7 +139,7 @@ def translate_to_cobol_mlir(fields, stmts):
                 MoveOp(operands=[const.result, var_map[name]])
             )
 
-    # 4) Lower PROCEDURE DIVISION
+    # 5) Lower PROCEDURE DIVISION
     for stmt in stmts:
         # Try MOVE
         m = MOVE_RE.match(stmt)
@@ -193,9 +220,10 @@ def main():
         sys.exit(1)
 
     lines  = open(sys.argv[1]).read().splitlines()
+    program_name = parse_program_id(lines)
     fields = parse_working_storage(lines)
     stmts  = parse_procedure(lines)
-    module = translate_to_cobol_mlir(fields, stmts)
+    module = translate_to_cobol_mlir(program_name, fields, stmts)
     print(module)
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from xdsl.dialects.builtin import IntegerAttr, StringAttr
+from xdsl.dialects.builtin import IntegerAttr, StringAttr, FunctionType
 from xdsl.ir import Dialect, TypeAttribute
 from xdsl.irdl import (
     irdl_attr_definition,
@@ -112,6 +112,24 @@ class CobolConstantOp(IRDLOperation):
     # The single result
     result = result_def()
 
+
+@irdl_op_definition
+class FuncOp(IRDLOperation):
+    """
+    COBOL function/program operation.
+    Represents a COBOL program with its PROCEDURE DIVISION.
+    """
+    name = "cobol.func"
+    
+    # Program name (from PROGRAM-ID)
+    sym_name = prop_def(StringAttr)
+    
+    # Function type (currently no params/returns for COBOL programs)
+    function_type = prop_def(FunctionType)
+    
+    # The program body (PROCEDURE DIVISION)
+    body = region_def("single_block")
+
 #===----------------------------------------------------------------------===
 # Dialect Registration
 #===----------------------------------------------------------------------===
@@ -126,6 +144,7 @@ COBOL = Dialect(
         StopRunOp,
         DeclareOp,
         CobolConstantOp,
+        FuncOp,
     ],
     [
         CobolStringType,
