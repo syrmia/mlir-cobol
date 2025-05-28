@@ -46,8 +46,8 @@ ant jar                # creates koopa.jar
 To try it out:
 
 ```bash
-java -cp koopa.jar  koopa.app.cli.ToXml testsuite/koopa/test.CBL test.xml
-Processing testsuite/koopa/test.CBL
+java -cp koopa.jar  koopa.app.cli.ToXml --free-format test.cbl test.xml
+Processing test.cbl
 Writing XML to test.xml
 ```
 
