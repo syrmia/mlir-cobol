@@ -28,9 +28,27 @@ python3 -m venv venv
 source venv/bin/activate
 ```
 
-2. Install dependencies:
+2. Install Python dependencies:
 ```bash
 pip install xdsl
+```
+
+3. Install `koopa`:
+
+```bash
+git clone https://github.com/krisds/koopa.git
+cd koopa
+mkdir build
+ant build
+ant jar                # creates koopa.jar
+```
+
+To try it out:
+
+```bash
+java -cp koopa.jar  koopa.app.cli.ToXml testsuite/koopa/test.CBL test.xml
+Processing testsuite/koopa/test.CBL
+Writing XML to test.xml
 ```
 
 ## Usage
