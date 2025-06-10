@@ -1,230 +1,183 @@
 #!/usr/bin/env python3
-import sys
-import re
+"""
+cobol-front.py – tiny COBOL→MLIR translator.
+"""
+
+from __future__ import annotations
+import sys, re
+from pathlib import Path
+from typing import List
 
 from xdsl.context import Context
-from xdsl.ir import Region, Block
 from xdsl.dialects import builtin
-from xdsl.dialects.builtin import ModuleOp, IntegerType, IntegerAttr, StringAttr, FunctionType
+from xdsl.dialects.builtin import (
+    ModuleOp, FunctionType, IntegerType, IntegerAttr, StringAttr
+)
+
 from cobol_dialect import (
-    COBOL,
-    DeclareOp,
-    MoveOp,
-    AddOp,
-    CompareOp,
-    IfOp,
-    StopRunOp,
-    CobolStringType,
-    CobolDecimalType,
-    CobolConstantOp,
-    FuncOp,
+    COBOL, CobolStringType, CobolDecimalType,
+    DeclareOp, CobolConstantOp, MoveOp, AddOp,
+    CompareOp, IfOp, DisplayOp, StopRunOp, FuncOp,
 )
 
-# Regex for working-storage DECL
+
+# Regex helpers.
+# TODO: Move to `gcobol`.
+IDENT = r'[A-Z0-9-]+'
+PROGRAM_ID_RE = re.compile(rf'^PROGRAM-ID\.\s*({IDENT})', re.IGNORECASE)
 DECL_RE = re.compile(
-    r'^\s*(\d+)\s+(\w+)\s+PIC\s+([9X]\(\d+\))'
-    r'(?:\s+VALUE\s+(".*?"|\S+))?',
-    re.IGNORECASE
-)
+    rf'^\s*(\d+)\s+({IDENT})\s+PIC\s+([9X]\(\d+\))'
+    r'(?:\s+VALUE\s+(".*?"|\S+))?\.?$', re.IGNORECASE)
 
-# Regex for MOVE statements (handles quoted or unquoted source)
-MOVE_RE = re.compile(
-    r'^MOVE\s+(".*?"|\w+)\s+TO\s+(\w+)$',
-    re.IGNORECASE
-)
+MOVE_RE    = re.compile(rf'^MOVE\s+(".*?"|{IDENT})\s+TO\s+({IDENT})\.?$', re.IGNORECASE)
+ADD_RE     = re.compile(rf'^ADD\s+({IDENT})\s+TO\s+({IDENT})\.?$',         re.IGNORECASE)
+IF_RE      = re.compile(rf'^IF\s+({IDENT})\s*([<>=])\s*({IDENT}|\d+)\.?$', re.IGNORECASE)
+DISPLAY_RE = re.compile(r'^DISPLAY\s+(.+)$', re.IGNORECASE)
+LABEL_RE   = re.compile(rf'^{IDENT}\.$', re.IGNORECASE)
 
-# Regex for ADD statements: ADD SRC TO DST
-ADD_RE = re.compile(r'^ADD\s+(\w+)\s+TO\s+(\w+)$', re.IGNORECASE)
+# Tiny parsers.
+# TODO: Move to `gcobol`.
+def canon(name: str) -> str: return name.upper()
 
-# Regex for IF statements: IF LHS (> | < | =) RHS
-IF_RE = re.compile(r'^IF\s+(\w+)\s*([<>=])\s*(\w+|\d+)$', re.IGNORECASE)
+def parse_program_id(lines: List[str]) -> str:
+    for l in lines:
+        if m := PROGRAM_ID_RE.match(l.strip()): return canon(m.group(1))
+    return "MAIN"
 
-# Regex for PROGRAM-ID
-PROGRAM_ID_RE = re.compile(r'^PROGRAM-ID\.\s*(\w+)', re.IGNORECASE)
-
-def parse_program_id(lines):
-    for line in lines:
-        m = PROGRAM_ID_RE.match(line.strip())
-        if m:
-            return m.group(1)
-    return "MAIN"  # Default program name
-
-def parse_working_storage(lines):
-    start = next(i for i, l in enumerate(lines) if 'WORKING-STORAGE SECTION' in l)
-    end   = next(i for i, l in enumerate(lines) if 'PROCEDURE DIVISION'   in l)
-    ws    = lines[start+1:end]
-
+def parse_working_storage(lines: List[str]):
+    beg = next(i for i,l in enumerate(lines) if 'WORKING-STORAGE SECTION' in l.upper())
+    end = next(i for i,l in enumerate(lines) if 'PROCEDURE DIVISION'     in l.upper())
     fields = []
-    for l in ws:
-        m = DECL_RE.match(l)
-        if not m:
-            continue
-        lvl, name, pic, val = m.groups()
+    for l in lines[beg+1:end]:
+        if not (m := DECL_RE.match(l.rstrip())): continue
+        _, name, pic, val = m.groups()
         if val:
-            # strip quotes and trailing dot
-            val = val.strip().lstrip('"').rstrip('"').rstrip('.')
-        fields.append({'name': name, 'pic': pic, 'value': val or None})
+            raw = val.strip()
+            if raw.startswith('"') and raw.endswith('"'):
+                raw = raw[1:-1]
+            val = raw.rstrip('.')
+        fields.append({'name': canon(name), 'pic': pic.upper(), 'value': val})
     return fields
 
-def parse_procedure(lines):
-    idx = next(i for i, l in enumerate(lines) if 'PROCEDURE DIVISION' in l)
-    # return raw statements (we’ll regex-parse them below)
-    return [l.strip() for l in lines[idx+1:] if l.strip()]
+def parse_procedure(lines: List[str]):
+    idx = next(i for i,l in enumerate(lines) if 'PROCEDURE DIVISION' in l.upper())
+    return [l.rstrip() for l in lines[idx+1:] if l.strip()]
 
-def translate_to_cobol_mlir(program_name, fields, stmts):
-    # 1) Context + dialects
+# MLIR generation helpers.
+I32 = IntegerType(32)
+def cobol_string(n:int): return CobolStringType([IntegerAttr(n, I32)])
+def cobol_decimal(d:int,s:int=0): return CobolDecimalType([IntegerAttr(d, I32),
+                                                           IntegerAttr(s, I32)])
+
+#  Translation.
+def translate_to_mlir(name:str, fields, stmts):
     ctx = Context()
-    ctx.register_dialect("builtin", builtin)
-    ctx.register_dialect("cobol", COBOL)
+    ctx.register_dialect("builtin",lambda c:builtin.Builtin(c))
+    ctx.register_dialect("cobol",  lambda c:COBOL)
 
-    # 2) Module
-    module = ModuleOp([])
-    module_block = module.regions[0].block
-    
-    # 3) Create FuncOp for the COBOL program
-    # COBOL programs typically have no parameters or return values
-    func_type = FunctionType.from_lists([], [])
-    
-    func_op = FuncOp(
-        attributes={
-            'sym_name': StringAttr(program_name),
-            'function_type': func_type
-        },
-        regions=[Region(Block())]
-    )
-    module_block.add_op(func_op)
-    
-    # Get the function body block
-    entry = func_op.body.block
-    var_map = {}
+    mod  = ModuleOp([])
+    fn   = FuncOp(attributes={"sym_name":StringAttr(name),
+                              "function_type":FunctionType.from_lists([],[])},
+                  regions=[builtin.Region(builtin.Block())])
+    mod.body.block.add_op(fn)
+    body = fn.body.block
 
-    decl_type = None
+    var:dict[str,builtin.Value] = {}
 
-    # 4) Declare & init WORKING-STORAGE
+    # Declarations.
     for f in fields:
-        name, pic = f['name'], f['pic']
-        # choose COBOL type
-        if pic.startswith('X'):
-            length = int(pic[pic.index('(')+1:-1])
-            ty = CobolStringType([IntegerAttr(length, IntegerType(32))])
-        else:
-            digits = int(pic[pic.index('(')+1:-1])
-            ty = CobolDecimalType([
-                IntegerAttr(digits, IntegerType(32)),
-                IntegerAttr(0,      IntegerType(32))
-            ])
+        n  = int(f['pic'][f['pic'].index('(')+1:-1])
+        ty = cobol_string(n) if f['pic'].startswith('X') else cobol_decimal(n)
+        decl = DeclareOp(attributes={"sym_name":StringAttr(f['name'])},
+                         result_types=[ty])
+        body.add_op(decl)
+        var[f['name']] = decl.result
 
-        # DeclareOp
-        decl = DeclareOp(
-            attributes={'sym_name': StringAttr(name)},
-            result_types=[ty],
-        )
-        entry.add_op(decl)
-        var_map[name] = decl.result
-        decl_type = ty  # remember for ADD
-
-        # initial VALUE (if any)
         if f['value'] is not None:
-            lit_attr = (
-                StringAttr(f['value']) 
-                if pic.startswith('X') 
-                else IntegerAttr(int(f['value']), IntegerType(32))
-            )
-            const = CobolConstantOp(
-                attributes={'value': lit_attr},
-                result_types=[ty],
-            )
-            entry.add_op(const)
-            entry.add_op(
-                MoveOp(operands=[const.result, var_map[name]])
-            )
+            lit = StringAttr(f['value']) if f['pic'].startswith('X') \
+                  else IntegerAttr(int(f['value']), I32)
+            cst = CobolConstantOp(attributes={"value":lit}, result_types=[ty])
+            body.add_op(cst)
+            body.add_op(MoveOp(operands=[cst.result, decl.result]))
 
-    # 5) Lower PROCEDURE DIVISION
-    for stmt in stmts:
-        # Try MOVE
-        m = MOVE_RE.match(stmt)
-        if m:
-            src_tok, dst = m.groups()
+    # Procedure statements.
+    for raw in stmts:
+        if LABEL_RE.match(raw.strip()): continue
+        s = raw.rstrip('.').strip()
+
+        # DISPLAY
+        if m := DISPLAY_RE.match(s):
+            toks  = re.findall(r'"[^"]*"|\S+', m.group(1))
+            group = []
+            for tok in toks:
+                if tok.startswith('"'):
+                    lit = tok.strip('"')
+                    cst = CobolConstantOp(
+                        attributes={"value":StringAttr(lit)},
+                        result_types=[cobol_string(len(lit))])
+                    body.add_op(cst)
+                    group.append(cst.result)
+                else:
+                    group.append(var[canon(tok)])
+            body.add_op(DisplayOp(operands=[group]))
+            continue
+
+        # MOVE
+        if m := MOVE_RE.match(s):
+            src_tok,dst_tok = m.groups()
+            dst = var[canon(dst_tok)]
             if src_tok.startswith('"'):
-                # literal string → constant
-                lit = src_tok.strip('"')
-                const = CobolConstantOp(
-                    attributes={'value': StringAttr(lit)},
-                    result_types=[decl_type],
-                )
-                entry.add_op(const)
-                src_val = const.result
+                cst = CobolConstantOp(
+                    attributes={"value":StringAttr(src_tok.strip('"'))},
+                    result_types=[dst.type])
+                body.add_op(cst)
+                src = cst.result
             else:
-                src_val = var_map[src_tok]
-            entry.add_op(
-                MoveOp(operands=[src_val, var_map[dst]])
-            )
+                src = var[canon(src_tok)]
+            body.add_op(MoveOp(operands=[src,dst]))
             continue
 
-        # Try ADD
-        m = ADD_RE.match(stmt)
-        if m:
-            src, dst = m.groups()
-            add = AddOp(
-                operands=[var_map[src], var_map[dst]],
-                result_types=[decl_type],
-            )
-            entry.add_op(add)
-            var_map[dst] = add.result
+        # ADD
+        if m := ADD_RE.match(s):
+            src_tok,dst_tok = m.groups()
+            add = AddOp(operands=[var[canon(src_tok)],var[canon(dst_tok)]],
+                        result_types=[var[canon(dst_tok)].type])
+            body.add_op(add)
+            var[canon(dst_tok)] = add.result
             continue
 
-        # Try IF
-        m = IF_RE.match(stmt)
-        if m:
-            lhs, cmpop, rhs_tok = m.groups()
-            # RHS constant or variable
+        # IF
+        if m := IF_RE.match(s):
+            lhs_tok,op,rhs_tok = m.groups()
+            lhs = var[canon(lhs_tok)]
             if rhs_tok.isdigit():
-                rhs_const = CobolConstantOp(
-                    attributes={'value': IntegerAttr(int(rhs_tok), IntegerType(32))},
-                    result_types=[IntegerType(32)],
-                )
-                entry.add_op(rhs_const)
-                rhs_val = rhs_const.result
-            else:
-                rhs_val = var_map[rhs_tok]
-
-            cond_map = {'>':'GT','<':'LT','=':'EQ'}
-            cmp = CompareOp(
-                operands=[var_map[lhs], rhs_val],
-                attributes={'cond': StringAttr(cond_map[cmpop])},
-                result_types=[IntegerType(1)],
-            )
-            entry.add_op(cmp)
-
-            # stub regions
-            then_r = Region(Block())
-            else_r = Region(Block())
-            entry.add_op(
-                IfOp(operands=[cmp.result], regions=[then_r, else_r])
-            )
+                cst = CobolConstantOp(attributes={"value":IntegerAttr(int(rhs_tok),I32)},
+                                      result_types=[I32])
+                body.add_op(cst); rhs = cst.result
+            else: rhs = var[canon(rhs_tok)]
+            cmp = CompareOp(operands=[lhs,rhs],
+                            attributes={"cond":StringAttr({"=":"EQ","<":"LT",">":"GT"}[op])},
+                            result_types=[IntegerType(1)])
+            body.add_op(cmp)
+            body.add_op(IfOp(operands=[cmp.result],
+                             regions=[builtin.Region(builtin.Block()),
+                                      builtin.Region(builtin.Block())]))
             continue
 
-        # Try STOP RUN
-        if stmt.upper().startswith('STOP'):
-            entry.add_op(StopRunOp())
-            continue
+        # STOP RUN
+        if s.upper().startswith("STOP"):
+            body.add_op(StopRunOp()); continue
 
-        # unrecognized statement
-        print(f"Warning: couldn’t parse statement: {stmt}", file=sys.stderr)
+        print("*** unrecognised:", raw, file=sys.stderr)
 
-    return module
-
-def main():
-    if len(sys.argv) != 2:
-        print(f"Usage: {sys.argv[0]} <test.cbl>", file=sys.stderr)
-        sys.exit(1)
-
-    lines  = open(sys.argv[1]).read().splitlines()
-    program_name = parse_program_id(lines)
-    fields = parse_working_storage(lines)
-    stmts  = parse_procedure(lines)
-    module = translate_to_cobol_mlir(program_name, fields, stmts)
-    print(module)
+    return mod
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv)!=2:
+        sys.exit(f"Usage: {sys.argv[0]} program.cbl")
+    src   = Path(sys.argv[1])
+    lines = src.read_text().splitlines()
+
+    print(translate_to_mlir(parse_program_id(lines),
+                            parse_working_storage(lines),
+                            parse_procedure(lines)))
