@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-from xdsl.dialects.builtin import IntegerAttr, StringAttr, FunctionType
-from xdsl.ir import TypeAttribute, Dialect
+from xdsl.dialects.builtin import FunctionType, IntegerAttr, StringAttr
+from xdsl.ir import Dialect, TypeAttribute
 from xdsl.irdl import (
-    IRDLOperation,
     irdl_attr_definition,
     irdl_op_definition,
+    IRDLOperation,
     operand_def,
-    var_operand_def,
+    ParametrizedAttribute,
     prop_def,
     region_def,
     result_def,
-    ParametrizedAttribute,
+    var_operand_def
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Type attributes
 # ─────────────────────────────────────────────────────────────────────────────
 @irdl_op_definition
-class FuncOp(IRDLOperation):
+class FunctionOp(IRDLOperation):
     name          = "cobol.func"
     sym_name      = prop_def(StringAttr)
     function_type = prop_def(FunctionType)
@@ -40,19 +40,9 @@ class CobolDecimalType(ParametrizedAttribute, TypeAttribute):
 #  Operation definitions
 # ─────────────────────────────────────────────────────────────────────────────
 @irdl_op_definition
-class DisplayOp(IRDLOperation):
-    name = "cobol.display"
-    args = var_operand_def()
-
-@irdl_op_definition
-class StopRunOp(IRDLOperation):
-    name = "cobol.stop"
-
-@irdl_op_definition
-class MoveOp(IRDLOperation):
-    name = "cobol.move"
-    src  = operand_def()
-    dst  = operand_def()
+class AcceptOp(IRDLOperation):
+    name     = "cobol.accept"
+    args = operand_def(StringAttr)
 
 @irdl_op_definition
 class AddOp(IRDLOperation):
@@ -62,11 +52,9 @@ class AddOp(IRDLOperation):
     result = result_def()
 
 @irdl_op_definition
-class CompareOp(IRDLOperation):
-    name   = "cobol.compare"
-    lhs    = operand_def()
-    rhs    = operand_def()
-    cond   = prop_def(StringAttr)
+class ConstantOp(IRDLOperation):
+    name   = "cobol.constant"
+    value  = prop_def(StringAttr | IntegerAttr)
     result = result_def()
 
 @irdl_op_definition
@@ -76,17 +64,39 @@ class DeclareOp(IRDLOperation):
     result   = result_def()
 
 @irdl_op_definition
-class IfOp(IRDLOperation):
-    name        = "cobol.if"
-    condition   = operand_def()
-    then_region = region_def()
-    else_region = region_def()
+class DisplayOp(IRDLOperation):
+    name = "cobol.display"
+    args = var_operand_def()
 
 @irdl_op_definition
-class CobolConstantOp(IRDLOperation):
-    name   = "cobol.constant"
-    value  = prop_def(StringAttr | IntegerAttr)
+class IsOp(IRDLOperation):
+    name = "cobol.is"
+    var  = operand_def()
+    kind = prop_def(StringAttr)
+    is_positive = prop_def(StringAttr)
     result = result_def()
+
+@irdl_op_definition
+class MoveOp(IRDLOperation):
+    name = "cobol.move"
+    src  = operand_def()
+    dst  = operand_def()
+
+@irdl_op_definition
+class NotOp(IRDLOperation):
+    name = "cobol.not"
+    op = operand_def()
+    result = result_def()
+
+@irdl_op_definition
+class SetOp(IRDLOperation):
+    name     = "cobol.set"
+    sym_name = prop_def(StringAttr)
+    result = result_def()
+
+@irdl_op_definition
+class StopRunOp(IRDLOperation):
+    name = "cobol.stop"
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Dialect registration
@@ -94,15 +104,16 @@ class CobolConstantOp(IRDLOperation):
 COBOL = Dialect(
     "cobol",
     [
-        MoveOp,
+        AcceptOp,
         AddOp,
-        CompareOp,
+        ConstantOp,
         DeclareOp,
-        IfOp,
         DisplayOp,
+        FunctionOp,
+        IsOp,
+        MoveOp,
         StopRunOp,
-        CobolConstantOp,
-        FuncOp,
+        SetOp
     ],
     [
         CobolStringType,
