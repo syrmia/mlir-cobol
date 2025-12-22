@@ -14,9 +14,12 @@ This project implements:
 ```
 mlir-cobol/
 ├── src/
-│   ├── cobol_dialect.py    # COBOL dialect definition
-│   └── cobol-front.py       # COBOL to MLIR frontend
-├── test.cbl                 # Example COBOL program
+│   ├── cobol_dialect.py      # COBOL dialect definition
+│   ├── cobol-front.py        # COBOL to MLIR frontend
+│   └── util/
+│       ├── lowering.py       # Partial lowering from cobol dialect to xdsl dialects
+│       └── xml_handlers.py   # XML file readers
+├── test/                     # Example COBOL programs
 └── README.md
 ```
 
@@ -39,7 +42,7 @@ To compile a COBOL program to MLIR:
 
 ```bash
 cd src/
-python cobol-front.py ../test.cbl
+python src/cobol\_front.py test/ifelse.cbl
 ```
 
 ## COBOL Dialect Operations
@@ -51,44 +54,61 @@ The dialect includes the following operations:
 - `!cobol.decimal<digits, scale>` - Decimal type with precision
 
 ### Operations
-- `cobol.func` - Represents a COBOL program with its PROCEDURE DIVISION
-- `cobol.declare` - Variable declaration
+- `cobol.accept` - Input (COBOL ACCEPT statement)
 - `cobol.constant` - Literal values
+- `cobol.declare` - Variable declaration
+- `cobol.display` - Output (COBOL DISPLAY statement)
+- `cobol.func` - Represents a COBOL program with its PROCEDURE DIVISION
+- `cobol.is` - Is operator (COBOL IS operator, also IS NOT)
 - `cobol.move` - Data movement (COBOL MOVE statement)
+- `cobol.not` - Unary not operator
+- `cobol.set` - COBOL SET operator
 - `cobol.stop` - Program termination (STOP RUN)
 
 ## Example
 
-Input COBOL program (`test.cbl`):
+Input COBOL program (`ifelse.cbl`):
 ```cobol
- IDENTIFICATION DIVISION.
- PROGRAM-ID. TEST1.
-
- DATA DIVISION.
- WORKING-STORAGE SECTION.
- 01  WS-MESSAGE   PIC X(20) VALUE "Hello World".
- 01  WS-NUMBER    PIC 9(3)  VALUE 42.
-
- PROCEDURE DIVISION.
- MAIN-PARAGRAPH.
-     DISPLAY WS-MESSAGE " – value is " WS-NUMBER
-     STOP RUN.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. HELLOWORD.
+ENVIRONMENT DIVISION.
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+    77 OPERAND1 PIC 99.
+    77 OPERAND2 PIC 99.
+PROCEDURE DIVISION.
+    MOVE 10 TO OPERAND1.
+    MOVE 8 TO OPERAND2.
+    IF OPERAND2 is numeric and (OPERAND1 > OPERAND2)
+        DISPLAY 'OPERAND2 is smaller than OPERAND1'
+    ELSE
+        DISPLAY 'OPERAND2 is not smaller or numeric'
+    END-IF
+    STOP RUN.
 ```
 
 Generated MLIR output:
 ```mlir
 builtin.module {
   "cobol.func"() ({
-    %0 = "cobol.declare"() {sym_name = "WS-MESSAGE"} : () -> !cobol.string<20 : i32>
-    %1 = "cobol.constant"() {value = "Hello World"} : () -> !cobol.string<20 : i32>
-    "cobol.move"(%1, %0) : (!cobol.string<20 : i32>, !cobol.string<20 : i32>) -> ()
-    %2 = "cobol.declare"() {sym_name = "WS-NUMBER"} : () -> !cobol.decimal<3 : i32, 0 : i32>
-    %3 = "cobol.constant"() {value = 42 : i32} : () -> !cobol.decimal<3 : i32, 0 : i32>
-    "cobol.move"(%3, %2) : (!cobol.decimal<3 : i32, 0 : i32>, !cobol.decimal<3 : i32, 0 : i32>) -> ()
-    %4 = "cobol.constant"() {value = " \u2013 value is "} : () -> !cobol.string<12 : i32>
-    "cobol.display"(%0, %4, %2) : (!cobol.string<20 : i32>, !cobol.string<12 : i32>, !cobol.decimal<3 : i32, 0 : i32>) -> ()
+    %0 = "cobol.declare"() {sym_name = "OPERAND1"} : () -> !cobol.string<0 : i32>
+    %1 = "cobol.declare"() {sym_name = "OPERAND2"} : () -> !cobol.string<0 : i32>
+    %2 = "cobol.constant"() {value = "10"} : () -> !cobol.string<2 : i32>
+    "cobol.move"(%2, %0) : (!cobol.string<2 : i32>, !cobol.string<0 : i32>) -> ()
+    %3 = "cobol.constant"() {value = "8"} : () -> !cobol.string<1 : i32>
+    "cobol.move"(%3, %1) : (!cobol.string<1 : i32>, !cobol.string<0 : i32>) -> ()
+    %4 = "cobol.is"(%1) <{kind = "numeric", is_positive = "true"}> : (!cobol.string<0 : i32>) -> !cobol.decimal<1 : i32, 1 : i32>
+    %5 = arith.cmpi sgt, %0, %1 : !cobol.string<0 : i32>
+    %6 = arith.andi %4, %5 : !cobol.decimal<1 : i32, 1 : i32>
+    scf.if %6 {
+      %7 = "cobol.constant"() {value = "OPERAND2 is smaller than OPERAND1"} : () -> !cobol.string<33 : i32>
+      "cobol.display"(%7) : (!cobol.string<33 : i32>) -> ()
+    } else {
+      %8 = "cobol.constant"() {value = "OPERAND2 is not smaller or numeric"} : () -> !cobol.string<34 : i32>
+      "cobol.display"(%8) : (!cobol.string<34 : i32>) -> ()
+    }
     "cobol.stop"() : () -> ()
-  }) {sym_name = "TEST1", function_type = () -> ()} : () -> ()
+  }) {sym_name = "HELLOWORD", function_type = () -> ()} : () -> ()
 }
 ```
 
