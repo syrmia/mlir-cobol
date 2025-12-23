@@ -39,8 +39,8 @@ from util.lowering import lower_cobol_to_mlir
 
 # MLIR generation helpers.
 I32 = IntegerType(32)
-def cobol_string(n: int): return CobolStringType([IntegerAttr(n, I32)])
-def cobol_decimal(d: int, s: int=0): return CobolDecimalType([IntegerAttr(d, I32), IntegerAttr(s, I32)])
+def cobol_string(n: int): return CobolStringType(IntegerAttr(n, I32))
+def cobol_decimal(d: int, s: int=0): return CobolDecimalType(IntegerAttr(d, I32), IntegerAttr(s, I32))
 
 
 def run_koopa(src):
