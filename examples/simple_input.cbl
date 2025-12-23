@@ -6,4 +6,3 @@
        PROCEDURE DIVISION.
            ACCEPT n
        STOP RUN.
-      

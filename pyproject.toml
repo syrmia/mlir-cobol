@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mlir-cobol"
+version = "0.1.0"
+description = "An experimental MLIR dialect for COBOL built using xDSL"
+readme = "README.md"
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Compilers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+keywords = ["cobol", "mlir", "xdsl", "compiler", "dialect"]
+requires-python = ">=3.10"
+dependencies = [
+    "xdsl>=0.38.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "lit>=18.0.0",
+    "filecheck>=0.0.24",
+]
+
+[project.scripts]
+cobol-translate = "cobol_translate:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+py-modules = ["cobol_front", "cobol_dialect", "cobol_translate", "emitc_lowering"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["util*"]

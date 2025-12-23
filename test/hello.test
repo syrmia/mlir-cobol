@@ -1,0 +1,12 @@
+# Test: Hello World COBOL program with DISPLAY
+# REQUIRES: koopa
+# RUN: %cobol-translate %S/../examples/hello.cbl 2>&1 | FileCheck %s
+
+# CHECK: builtin.module
+# CHECK: "cobol.func"
+# CHECK: "cobol.constant"
+# CHECK: value = "Hello world"
+# CHECK: !cobol.string
+# CHECK: "cobol.display"
+# CHECK: "cobol.stop"
+# CHECK: sym_name = "HELLO-WORLD"

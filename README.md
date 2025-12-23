@@ -1,12 +1,12 @@
 # MLIR-COBOL: MLIR Dialect for COBOL (POC)
 
-An experimental MLIR dialect for COBOL built using xDSL.
+An experimental MLIR dialect for COBOL built using xDSL, and more.
 
 ## Overview
 
 This project implements:
 - A custom COBOL dialect for MLIR with operations modeling COBOL semantics
-- A frontend compiler (`cobol-front.py`) that parses COBOL source files and generates MLIR
+- A frontend compiler that parses COBOL source files and generates MLIR
 - ...
 
 ## Project Structure
@@ -15,11 +15,14 @@ This project implements:
 mlir-cobol/
 ├── src/
 │   ├── cobol_dialect.py      # COBOL dialect definition
-│   ├── cobol-front.py        # COBOL to MLIR frontend
+│   ├── cobol_translate.py    # Main driver tool
+│   ├── cobol_front.py        # COBOL to MLIR frontend
+│   ├── emitc_lowering.py     # EmitC lowering (TBD)
 │   └── util/
 │       ├── lowering.py       # Partial lowering from cobol dialect to xdsl dialects
 │       └── xml_handlers.py   # XML file readers
-├── test/                     # Example COBOL programs
+├── examples/                 # Example COBOL programs
+├── test/                     # Lit tests
 └── README.md
 ```
 
@@ -31,18 +34,37 @@ python3 -m venv venv
 source venv/bin/activate
 ```
 
-2. Install Python dependencies:
+2. Install the package with dependencies:
 ```bash
-pip install xdsl
+pip install -e .
+```
+
+3. Download the KOOPA COBOL parser:
+```bash
+wget https://github.com/krisds/koopa/releases/download/v20250222/koopa-20250222.jar -O koopa.jar
+export KOOPA_PATH=$PWD
 ```
 
 ## Usage
 
-To compile a COBOL program to MLIR:
+After installation, `cobol-translate` is available:
 
 ```bash
-cd src/
-python src/cobol\_front.py test/ifelse.cbl
+cobol-translate examples/hello.cbl                    # Output COBOL MLIR dialect
+cobol-translate examples/ifelse.cbl --emit cobol-mlir # Same as above
+cobol-translate examples/ifelse.cbl --emit emitc      # Output EmitC dialect (TBD)
+cobol-translate examples/ifelse.cbl --emit llvm-mlir  # Output LLVM dialect (TBD)
+cobol-translate examples/hello.cbl -o output.mlir     # Write to file
+cobol-translate --help                                # Show all options
+```
+
+## Running Tests
+
+Install dev dependencies and run the lit tests:
+
+```bash
+pip install -e ".[dev]"
+lit test/
 ```
 
 ## COBOL Dialect Operations
@@ -64,10 +86,11 @@ The dialect includes the following operations:
 - `cobol.not` - Unary not operator
 - `cobol.set` - COBOL SET operator
 - `cobol.stop` - Program termination (STOP RUN)
+- ...
 
 ## Example
 
-Input COBOL program (`ifelse.cbl`):
+Input COBOL program (`examples/ifelse.cbl`):
 ```cobol
 IDENTIFICATION DIVISION.
 PROGRAM-ID. HELLOWORD.
@@ -110,6 +133,24 @@ builtin.module {
     "cobol.stop"() : () -> ()
   }) {sym_name = "HELLOWORD", function_type = () -> ()} : () -> ()
 }
+```
+
+## Run tests
+
+```bash
+(venv) $ lit test  
+-- Testing: 5 tests, 5 workers --
+PASS: mlir-cobol :: hello.test (1 of 5)
+PASS: mlir-cobol :: just_stop.test (2 of 5)
+PASS: mlir-cobol :: simple_input.test (3 of 5)
+PASS: mlir-cobol :: decls.test (4 of 5)
+PASS: mlir-cobol :: ifelse.test (5 of 5)
+
+Testing Time: 0.64s
+
+Total Discovered Tests: 5
+  Passed: 5 (100.00%)
+
 ```
 
 ## License

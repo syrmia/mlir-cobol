@@ -8,6 +8,7 @@ from xdsl.irdl import (
     irdl_op_definition,
     IRDLOperation,
     operand_def,
+    ParameterDef,
     ParametrizedAttribute,
     prop_def,
     region_def,
@@ -28,13 +29,13 @@ class FunctionOp(IRDLOperation):
 @irdl_attr_definition
 class CobolStringType(ParametrizedAttribute, TypeAttribute):
     name   = "cobol.string"
-    length: IntegerAttr
+    length: ParameterDef[IntegerAttr]
 
 @irdl_attr_definition
 class CobolDecimalType(ParametrizedAttribute, TypeAttribute):
     name   = "cobol.decimal"
-    digits: IntegerAttr
-    scale:  IntegerAttr
+    digits: ParameterDef[IntegerAttr]
+    scale:  ParameterDef[IntegerAttr]
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Operation definitions

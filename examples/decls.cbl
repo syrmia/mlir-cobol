@@ -10,4 +10,3 @@
            DISPLAY 'Name: ' WS-NAME.
            DISPLAY 'Age: ' WS-AGE.
            STOP RUN.
-      

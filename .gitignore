@@ -3,3 +3,5 @@ venv
 .vscode
 /build_xml
 /out
+*.egg-info
+test/Output/
