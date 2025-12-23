@@ -67,6 +67,15 @@ pip install -e ".[dev]"
 lit test/
 ```
 
+NOTE: Before running the tests, double check you installed `lit` and `FileCheck` as:
+
+```bash
+pip install lit
+
+sudo apt install llvm-18-tools
+sudo ln -s /usr/bin/FileCheck-18 /usr/bin/FileCheck
+```
+
 ## COBOL Dialect Operations
 
 The dialect includes the following operations:
