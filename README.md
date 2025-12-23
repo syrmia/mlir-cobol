@@ -112,20 +112,6 @@ builtin.module {
 }
 ```
 
-## Build GCC with COBOL support
-
-```bash
-$ git clone https://github.com/gcc-mirror/gcc.git
-$ cd gcc && mkdir build && cd build && ../configure --enable-languages=cobol && make -j3
-```
-
-## TODOs
-
-1. Move to gcobol: https://gcc.gnu.org/onlinedocs/gcobol/gcobol.html
-  - just frontend
-  - seems it is more robust than `koopa`
-  - try to serialize the AST parsed and populate that into MLIR
-
 ## License
 
 This project is licensed under the terms specified in the LICENSE file.
