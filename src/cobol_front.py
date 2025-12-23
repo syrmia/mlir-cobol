@@ -34,7 +34,7 @@ from cobol_dialect import (
     SetOp
 )
 from util.xml_handlers import process_node
-from util.lowering import lower_cobol_to_mlir
+from util.lowering import ConvertCobolToEmitcPass
 
 
 # MLIR generation helpers.
@@ -60,14 +60,14 @@ def run_koopa(src):
         "build_xml/" + os.path.splitext(src.name)[0] + ".xml"
     ])
 
+
 def read_xml(src):
     filename = "build_xml/" + os.path.splitext(src.name)[0] + ".xml"
     tree = ET.parse(filename)
     return process_node(tree.getroot())
 
-def process_cond(body, cond):
-    #print("processing cond: ", cond)
 
+def process_cond(body, cond):
     if len(cond) == 1:
         if isinstance(cond[0], OpResult):
             return cond[0]
@@ -106,7 +106,6 @@ def process_cond(body, cond):
             body.add_op(and_op)
             return and_op.result
 
-
     for i, tok in enumerate(cond):
         if not isinstance(tok, str):
             continue
@@ -118,9 +117,9 @@ def process_cond(body, cond):
             return or_op.result
 
     classes = [
-        "numeric",
+        "alphabetic",
         "negative",
-        "alphabetic"
+        "numeric"
     ]
     for i, tok in enumerate(cond):
         if tok.lower() == "is":
@@ -164,9 +163,6 @@ def process_cond(body, cond):
             body.add_op(cmp_op)
             return cmp_op.result
 
-        else:
-            print("Unknown word: ", cond)
-            exit
 
 # dictionary for declared and/or defined vars
 # var_name: { value, result }
@@ -249,8 +245,12 @@ def processStatements(body, lines, first_run) -> ModuleOp:
                 result_types=[res]
             )
             body.add_op(constOp)
-            body.add_op(MoveOp(operands=[constOp.result,
-                                         symbol_table[var_name]["result"]]))
+            body.add_op(MoveOp(
+                operands=[
+                    constOp.result,
+                    symbol_table[var_name]["result"]
+                    ]
+                ))
             continue
 
         elif operation.get("PICTURE"):
@@ -303,8 +303,7 @@ def processStatements(body, lines, first_run) -> ModuleOp:
             print("Unknown operation: ", operation)
             break
 
-def emit_cobol_mlir(lines):
-    ctx = Context()
+def emit_cobol_mlir(ctx, lines):
     ctx.register_dialect("builtin", lambda c: builtin.Builtin(c))
     ctx.register_dialect("cobol", lambda c: COBOL)
 
@@ -356,16 +355,19 @@ def main():
     lines = read_xml(src)
 
     # xdsl: translate to cobol dialect
-    module = emit_cobol_mlir(lines)
+    ctx = Context()
+    module = emit_cobol_mlir(ctx, lines)
 
     print(module)
 
     # xdsl: lowering to builtin dialects
-    # lower_cobol_to_mlir(ctx, module)
+
+    #lower_cobol_to_emitc(ctx, module)
+    ConvertCobolToEmitcPass().apply(ctx, module)
 
     # write to file
-    # file_name = os.path.splitext(Path(sys.argv[1]).name)[0]
-    # write_to_file(file_name)
+    file_name = os.path.splitext(Path(sys.argv[1]).name)[0]
+    write_to_file(file_name)
 
     # emit llvm dialect
     # translate_to_llmv(file_name)
