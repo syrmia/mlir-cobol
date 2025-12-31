@@ -72,6 +72,9 @@ def main():
     # Generate MLIR
     module = emit_cobol_mlir(lines)
 
+    # Lower cobol dialect to emitc dialect
+    #lower_to_emitc(module)
+
     if args.emit == 'cobol-mlir':
         output = str(module)
     elif args.emit == 'emitc':
