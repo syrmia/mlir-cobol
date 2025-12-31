@@ -273,8 +273,6 @@ def processStatements(body, lines, first_run) -> ModuleOp:
             )
             body.add_op(declOp)
 
-            # print(declOp)
-
             symbol_table[name] = {
                 "value": literal,
                 "result": declOp.result
@@ -376,6 +374,8 @@ def main():
 
     # xdsl: lowering to emitc dialect
     lower_to_emitc(module)
+
+    print(module)
 
     # write to file
     file_name = os.path.splitext(Path(sys.argv[1]).name)[0]
