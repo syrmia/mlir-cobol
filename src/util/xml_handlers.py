@@ -123,12 +123,27 @@ def handle_dataDescriptionEntry(elem):
     integer_literal = extractText(elem, "integerLiteral")
     scope = extractText(elem, "levelNumber")
 
-    if integer_literal.strip() == "":
-        data = string_literal
-    else:
-        data = int(integer_literal)
+    # X(n), A(n), 9(n)
+    pictureString = extractText(elem, "pictureString")
+    type = (
+        "alpha" if pictureString.startswith("A") else
+        "alnum" if pictureString.startswith("X") else
+        "num"
+    )
+    length = int(pictureString.split("(")[1].split(")")[0])
 
-    return { "PICTURE": [ name, data ] }
+    if integer_literal.strip() == "":
+        literal = string_literal
+    else:
+        literal = int(integer_literal)
+
+    return { "PICTURE": {
+        "name" : name,
+        "literal" : literal,
+        "type" : type,
+        "length" : length
+        }
+    }
 
 def handle_displayStatement(elem):
     '''

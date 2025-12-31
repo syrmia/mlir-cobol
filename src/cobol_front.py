@@ -33,14 +33,14 @@ from cobol_dialect import (
     StopRunOp,
     SetOp
 )
+from emitc_lowering import lower_to_emitc
 from util.xml_handlers import process_node
-from util.lowering import lower_cobol_to_mlir
 
 
 # MLIR generation helpers.
 I32 = IntegerType(32)
-def cobol_string(n: int): return CobolStringType([IntegerAttr(n, I32)])
-def cobol_decimal(d: int, s: int=0): return CobolDecimalType([IntegerAttr(d, I32), IntegerAttr(s, I32)])
+def cobol_string(n: int): return CobolStringType(IntegerAttr(n, I32))
+def cobol_decimal(d: int, s: int=0): return CobolDecimalType(IntegerAttr(d, I32), IntegerAttr(s, I32))
 
 
 def run_koopa(src):
@@ -57,17 +57,17 @@ def run_koopa(src):
         koopa_jar,
         "koopa.app.cli.ToXml",
         "--free-format", src,
-        "build_xml/" + os.path.splitext(src.name)[0] + ".xml"
+        "test/Output/build_xml/" + os.path.splitext(src.name)[0] + ".xml"
     ])
 
+
 def read_xml(src):
-    filename = "build_xml/" + os.path.splitext(src.name)[0] + ".xml"
+    filename = "test/Output/build_xml/" + os.path.splitext(src.name)[0] + ".xml"
     tree = ET.parse(filename)
     return process_node(tree.getroot())
 
-def process_cond(body, cond):
-    #print("processing cond: ", cond)
 
+def process_cond(body, cond):
     if len(cond) == 1:
         if isinstance(cond[0], OpResult):
             return cond[0]
@@ -106,7 +106,6 @@ def process_cond(body, cond):
             body.add_op(and_op)
             return and_op.result
 
-
     for i, tok in enumerate(cond):
         if not isinstance(tok, str):
             continue
@@ -118,9 +117,9 @@ def process_cond(body, cond):
             return or_op.result
 
     classes = [
-        "numeric",
+        "alphabetic",
         "negative",
-        "alphabetic"
+        "numeric"
     ]
     for i, tok in enumerate(cond):
         if tok.lower() == "is":
@@ -164,9 +163,6 @@ def process_cond(body, cond):
             body.add_op(cmp_op)
             return cmp_op.result
 
-        else:
-            print("Unknown word: ", cond)
-            exit
 
 # dictionary for declared and/or defined vars
 # var_name: { value, result }
@@ -204,7 +200,8 @@ def processStatements(body, lines, first_run) -> ModuleOp:
                 else:
                     var = symbol_table[arg[0]]
                     ops.append(var["result"])
-            body.add_op(DisplayOp(operands=[ops]))
+            disp_op = DisplayOp(operands=[ops])
+            body.add_op(disp_op)
             continue
 
         elif operation.get("IF"):
@@ -249,43 +246,50 @@ def processStatements(body, lines, first_run) -> ModuleOp:
                 result_types=[res]
             )
             body.add_op(constOp)
-            body.add_op(MoveOp(operands=[constOp.result,
-                                         symbol_table[var_name]["result"]]))
+            body.add_op(MoveOp(
+                operands=[
+                    constOp.result,
+                    symbol_table[var_name]["result"]
+                    ]
+                ))
             continue
 
         elif operation.get("PICTURE"):
-            name = operation.get("PICTURE")[0]
-            data = operation.get("PICTURE")[1]
+            data = operation.get("PICTURE")
+            name = data.get("name")
+            literal = data.get("literal")
+            type = data.get("type")
+            length = data.get("length")
 
             declOp = DeclareOp(
                 attributes={
                     "sym_name": StringAttr(name)
                 },
                 result_types=[
-                    cobol_string(len(data))
-                        if not isinstance(data, int)
-                        else cobol_decimal(data, 0)
+                    cobol_string(length)
+                        if type != "num"
+                        else cobol_decimal(length, 0)
                 ]
             )
             body.add_op(declOp)
 
             symbol_table[name] = {
-                "value": data,
+                "value": literal,
                 "result": declOp.result
             }
 
-            if data:
+            if literal:
                 # ima i definiciju:
                 constOp = ConstantOp(
                     attributes={
-                        "value": StringAttr(data.strip("\'"))
-                        if not isinstance(data, int)
-                        else IntegerAttr(data, I32)
+                        "value": StringAttr(literal)
+                        if type != "num"
+                        else IntegerAttr(literal, I32)
                     },
                     result_types=[
-                        cobol_string(len(data))
-                        if not isinstance(data, int)
-                        else cobol_decimal(data, 0)
+                        cobol_string(length)
+                        if type != "num"
+                        else cobol_decimal(length, 0)
                     ]
                 )
                 body.add_op(constOp)
@@ -302,6 +306,7 @@ def processStatements(body, lines, first_run) -> ModuleOp:
         else:
             print("Unknown operation: ", operation)
             break
+
 
 def emit_cobol_mlir(lines):
     ctx = Context()
@@ -326,14 +331,18 @@ def emit_cobol_mlir(lines):
 
     return module
 
+
+
+
 # write partially lowered mlir to file
-def write_to_file(filename):
-    file_path = "out/" + file_name + ".mlir"
+def write_to_file(filename, module):
+    file_path = "out/" + filename + ".mlir"
     with open(file_path, 'w') as file:
         printer = Printer(stream=file)
         printer.print_op(module)
 
 # translation from builtin dialects to llvm dialect
+'''
 def translate_to_llmv(file_name):
     subprocess.run([
         "xdsl-opt", "out/" + file_name + ".mlir", #"out/mlir_output.mlir",
@@ -341,6 +350,8 @@ def translate_to_llmv(file_name):
         "--print-between-passes",
         "-o", "out/" + file_name + "_llvm.mlir" #"out/out_llvm.mlir"
     ])
+'''
+
 
 
 def main():
@@ -356,16 +367,19 @@ def main():
     lines = read_xml(src)
 
     # xdsl: translate to cobol dialect
+    #ctx = Context()
     module = emit_cobol_mlir(lines)
 
     print(module)
 
-    # xdsl: lowering to builtin dialects
-    # lower_cobol_to_mlir(ctx, module)
+    # xdsl: lowering to emitc dialect
+    lower_to_emitc(module)
+
+    print(module)
 
     # write to file
-    # file_name = os.path.splitext(Path(sys.argv[1]).name)[0]
-    # write_to_file(file_name)
+    file_name = os.path.splitext(Path(sys.argv[1]).name)[0]
+    write_to_file(file_name, module)
 
     # emit llvm dialect
     # translate_to_llmv(file_name)

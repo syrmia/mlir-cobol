@@ -17,9 +17,8 @@ mlir-cobol/
 │   ├── cobol_dialect.py      # COBOL dialect definition
 │   ├── cobol_translate.py    # Main driver tool
 │   ├── cobol_front.py        # COBOL to MLIR frontend
-│   ├── emitc_lowering.py     # EmitC lowering (TBD)
+│   ├── emitc_lowering.py     # EmitC lowering (in progress)
 │   └── util/
-│       ├── lowering.py       # Partial lowering from cobol dialect to xdsl dialects
 │       └── xml_handlers.py   # XML file readers
 ├── examples/                 # Example COBOL programs
 ├── test/                     # Lit tests
