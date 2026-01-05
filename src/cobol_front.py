@@ -274,7 +274,7 @@ def processStatements(body, lines, first_run) -> ModuleOp:
             body.add_op(declOp)
 
             symbol_table[name] = {
-                "value": literal,
+                "value": literal.strip('\'') if not isinstance(literal, int) else literal,
                 "result": declOp.result
             }
 

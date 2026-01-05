@@ -27,6 +27,7 @@ from xdsl.builder import InsertPoint
 from xdsl.context import Context
 from xdsl.dialects.builtin import (
     AnyTensorType,
+    ArrayAttr,
     DenseIntOrFPElementsAttr, TypedAttribute,
     FunctionType,
     I8,
@@ -48,6 +49,7 @@ from xdsl.dialects.emitc import (
     EmitC_CallOpaqueOp,
     EmitC_ConstantOp,
     EmitC_VariableOp,
+    EmitC_ArrayType,
     EmitC_LValueType,
     EmitCIntegerType,
     EmitC_OpaqueType,
@@ -88,7 +90,8 @@ class CobolDecimalTypeConversion(TypeConversionPattern):
 class CobolStringTypeConversion(TypeConversionPattern):
     @attr_type_rewrite_pattern
     def convert_type(self, type: CobolStringType) -> EmitC_PointerType:
-        return EmitC_PointerType(EmitC_OpaqueType(StringAttr(f"char[{type.length}]")))
+        return EmitC_ArrayType([type.length.value.data], EmitCIntegerType(8))
+        #return EmitC_PointerType(EmitC_OpaqueType(StringAttr(f"char[{type.length}]")))
 
 
 @dataclass
@@ -98,7 +101,6 @@ class ConvertAcceptOp(RewritePattern):
         print("Rewriting accept op")
 
 
-# TO DO
 @dataclass
 class ConvertConstantOp(RewritePattern):
     @op_type_rewrite_pattern
@@ -114,7 +116,7 @@ class ConvertConstantOp(RewritePattern):
             )
         else:
             const_op = EmitC_ConstantOp(
-                value=val
+                value=StringAttr(val.data.strip('\'').strip('\"'))
             )
         rewriter.replace_op(op, const_op)
 
@@ -125,17 +127,19 @@ class ConvertDeclareOp(RewritePattern):
     def match_and_rewrite(self, op: DeclareOp, rewriter: PatternRewriter):
         sym_name = op.attributes["sym_name"]
 
-        if isinstance(op.result.type, IntegerType):
-            emitc_type = op.result.type
-        elif isinstance(op.result.type, EmitC_PointerType):
-            emitc_type = op.result.type
+        op_res_type = op.result.type
+
+        if isinstance(op_res_type, IntegerType):
+            var_op_res_type = EmitC_LValueType(op_res_type)
+        elif isinstance(op_res_type, EmitC_ArrayType):
+            var_op_res_type = op_res_type
         else:
-            print("Type still not supported: ", op.result.type)
+            print("Type still not supported: ", op_res_type)
             return
 
         var  = EmitC_VariableOp(
             emitc.EmitC_OpaqueAttr(sym_name),
-            EmitC_LValueType(emitc_type)
+            var_op_res_type
         )
 
         rewriter.replace_op(op, var)
@@ -173,6 +177,7 @@ class ConvertIsOp(RewritePattern):
 class ConvertMoveOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: MoveOp, rewriter: PatternRewriter):
+        print("move op: ", op)
         print("Rewriting move op")
 
 

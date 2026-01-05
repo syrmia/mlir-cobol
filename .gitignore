@@ -5,3 +5,4 @@ venv
 /out
 *.egg-info
 test/Output/
+koopa.jar
