@@ -108,9 +108,6 @@ class ConvertConstantOp(RewritePattern):
         val = op.attributes["value"]
 
         if isinstance(val, IntegerAttr):
-            #width = val.type.width
-            #res_type = IntegerType(width)
-
             const_op = EmitC_ConstantOp(
                 value=int(val.value.data)
             )
@@ -172,13 +169,15 @@ class ConvertIsOp(RewritePattern):
         print("Rewriting is op")
 
 
-# TO DO
 @dataclass
 class ConvertMoveOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: MoveOp, rewriter: PatternRewriter):
-        print("move op: ", op)
-        print("Rewriting move op")
+        new_op = EmitC_AssignOp(
+            var=op.dst,
+            value=op.src,
+        )
+        rewriter.replace_op(op, new_op)
 
 
 @dataclass
