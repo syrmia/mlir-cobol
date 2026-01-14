@@ -130,7 +130,11 @@ def handle_dataDescriptionEntry(elem):
         "alnum" if pictureString.startswith("X") else
         "num"
     )
-    length = int(pictureString.split("(")[1].split(")")[0])
+    hasDef = pictureString.find('(') != -1
+    if hasDef:
+        length = int(pictureString.split("(")[1].split(")")[0])
+    else:
+        length = 0
 
     if integer_literal.strip() == "":
         literal = string_literal
