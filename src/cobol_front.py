@@ -35,6 +35,7 @@ from cobol_dialect import (
 )
 from emitc_lowering import lower_to_emitc
 from util.xml_handlers import process_node
+import math
 
 
 # MLIR generation helpers.
@@ -280,18 +281,21 @@ def processStatements(body, lines, first_run) -> ModuleOp:
 
             if literal:
                 # ima i definiciju:
+                if type == "num":
+                    for width in (8, 16, 32, 64):
+                        if math.floor(math.log2(literal)) + 1 < 2**width:
+                            value_type = IntegerAttr(literal, width)
+                            break
+                    result = cobol_decimal(length, 0)
+                else:
+                    value_type = StringAttr(literal)
+                    result = cobol_string(length)
+
                 constOp = ConstantOp(
-                    attributes={
-                        "value": StringAttr(literal)
-                        if type != "num"
-                        else IntegerAttr(literal, I32)
-                    },
-                    result_types=[
-                        cobol_string(length)
-                        if type != "num"
-                        else cobol_decimal(length, 0)
-                    ]
+                    attributes={"value": value_type},
+                    result_types=[result]
                 )
+
                 body.add_op(constOp)
 
                 moveOp = MoveOp(operands=[constOp.result, declOp.result])
