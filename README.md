@@ -143,6 +143,21 @@ builtin.module {
 }
 ```
 
+## Dependencies
+
+After emitting cobol dialect mlir code into EmitC dialect, it is possible to convert the EmitC code into C++, using the C++ emitter.  
+Install the required LLVM/MLIR 20 packages:
+```
+wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+add-apt-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-20 main"
+apt-get update
+apt-get install -y libmlir-20-dev mlir-20-tools
+```
+After installing the dependencies, run the translation as follows:
+```
+mlir-translate-20 --mlir-to-cpp out/emitc_code.mlir -o out/cpp_code.cpp
+```
+
 ## Run tests
 
 ```bash
