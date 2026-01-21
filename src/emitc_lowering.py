@@ -48,11 +48,14 @@ from xdsl.dialects.emitc import (
     EmitC_AssignOp,
     EmitC_CallOpaqueOp,
     EmitC_ConstantOp,
+    EmitC_IncludeOp,
     EmitC_VariableOp,
+    EmitC_VerbatimOp,
     EmitC_ArrayType,
     EmitC_LValueType,
     EmitCIntegerType,
     EmitC_OpaqueType,
+    EmitC_OpaqueAttr,
     EmitC_PointerType
 )
 from xdsl.dialects.func import FuncOp, ReturnOp
@@ -67,31 +70,25 @@ from xdsl.pattern_rewriter import (
     op_type_rewrite_pattern
 )
 from xdsl.passes import ModulePass
-import math
+from xdsl.ir import SSAValue
 
 class CobolDecimalTypeConversion(TypeConversionPattern):
     @attr_type_rewrite_pattern
     def convert_type(self, type: CobolDecimalType) -> EmitCIntegerType:
-        num_digits = type.digits.value.data
-        num_bits = math.ceil(num_digits * 3.32)
+        length = type.digits.value.data
 
-        if num_bits < 2**8:
-            return EmitCIntegerType(8)
-        elif num_bits < 2**16:
-            return EmitCIntegerType(16)
-        elif num_bits < 2**32:
-            return EmitCIntegerType(32)
-        elif num_bits < 2**64:
-            return EmitCIntegerType(64)
-        else:
-            return "error" # ...
+        for width in (8, 16, 32, 64):
+            if 10**length - 1 < 2**width:
+                return EmitCIntegerType(width)
+
+        return "error" # ...
 
 
 class CobolStringTypeConversion(TypeConversionPattern):
     @attr_type_rewrite_pattern
     def convert_type(self, type: CobolStringType) -> EmitC_PointerType:
-        return EmitC_ArrayType([type.length.value.data], EmitCIntegerType(8))
-        #return EmitC_PointerType(EmitC_OpaqueType(StringAttr(f"char[{type.length}]")))
+        return EmitC_LValueType(EmitC_OpaqueType(StringAttr("std::string")))
+        #return EmitC_ArrayType([type.length.value.data + 1], EmitCIntegerType(8))
 
 
 @dataclass
@@ -122,31 +119,42 @@ class ConvertConstantOp(RewritePattern):
 class ConvertDeclareOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: DeclareOp, rewriter: PatternRewriter):
-        sym_name = op.attributes["sym_name"]
-
+        sym_value = op.attributes["value"]
         op_res_type = op.result.type
 
         if isinstance(op_res_type, IntegerType):
-            var_op_res_type = EmitC_LValueType(op_res_type)
-        elif isinstance(op_res_type, EmitC_ArrayType):
-            var_op_res_type = op_res_type
+            new_op = EmitC_ConstantOp(
+                value=sym_value
+            )
+            rewriter.replace_op(op, new_op)
+
+        elif isinstance(op_res_type, EmitC_LValueType | EmitC_ArrayType):
+            fixed_string = sym_value.data.strip("\"").strip("\'")
+            var_op  = EmitC_VariableOp(
+                emitc.EmitC_OpaqueAttr(StringAttr("\"" + fixed_string + "\"")),
+                op_res_type
+            )
+            rewriter.replace_op(op, var_op)
+
         else:
             print("Type still not supported: ", op_res_type)
-            return
 
-        var  = EmitC_VariableOp(
-            emitc.EmitC_OpaqueAttr(sym_name),
-            var_op_res_type
-        )
-
-        rewriter.replace_op(op, var)
+        return
 
 
 @dataclass
 class ConvertDisplayOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: DisplayOp, rewriter: PatternRewriter):
-        print("Rewriting display op")
+        args = op.args
+
+        verbatim_op = EmitC_VerbatimOp(
+            value=StringAttr("std::cout << {};"),
+            operands=list(args)
+        )
+        rewriter.replace_op(op, verbatim_op)
+
+        #rewriter.replace_op(op, EmitC_VerbatimOp(value=StringAttr("std::cout << \"bla bla\";"), operands=None))
 
 
 @dataclass
@@ -209,7 +217,28 @@ class ConvertCobolToEmitcPass(ModulePass):
 
     name = "convert_cobol_to_emitc"
 
+    def add_includes(self, module: ModuleOp) -> None:
+        includes_to_add = set()
+
+        for op in module.walk():
+            if isinstance(op, DisplayOp) and "iostream" not in includes_to_add:
+                includes_to_add.add("iostream")
+            elif isinstance(op, DeclareOp):
+                if isinstance(op.attributes["value"], IntegerAttr) and "cstdint" not in includes_to_add:
+                    includes_to_add.add("cstdint")
+                elif isinstance(op.attributes["value"], StringAttr) and "string" not in includes_to_add:
+                    includes_to_add.add("string")
+
+        for inc in includes_to_add:
+            include_op = EmitC_IncludeOp(
+                StringAttr(inc), UnitAttr()
+            )
+            module.body.block.insert_op_before(include_op, module.body.block.first_op)
+
+
     def apply(self, ctx: Context, op: ModuleOp) -> None:
+        self.add_includes(op)
+
         PatternRewriteWalker(
             GreedyRewritePatternApplier(
                 [
