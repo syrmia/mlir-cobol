@@ -19,13 +19,6 @@ from xdsl.irdl import (
 # ─────────────────────────────────────────────────────────────────────────────
 #  Type attributes
 # ─────────────────────────────────────────────────────────────────────────────
-@irdl_op_definition
-class FunctionOp(IRDLOperation):
-    name          = "cobol.func"
-    sym_name      = prop_def(StringAttr)
-    function_type = prop_def(FunctionType)
-    body          = region_def("single_block")
-
 @irdl_attr_definition
 class CobolStringType(ParametrizedAttribute, TypeAttribute):
     name   = "cobol.string"
@@ -40,6 +33,13 @@ class CobolDecimalType(ParametrizedAttribute, TypeAttribute):
 # ─────────────────────────────────────────────────────────────────────────────
 #  Operation definitions
 # ─────────────────────────────────────────────────────────────────────────────
+@irdl_op_definition
+class FunctionOp(IRDLOperation):
+    name          = "cobol.func"
+    sym_name      = prop_def(StringAttr)
+    function_type = prop_def(FunctionType)
+    body          = region_def("single_block")
+
 @irdl_op_definition
 class AcceptOp(IRDLOperation):
     name     = "cobol.accept"
@@ -61,7 +61,7 @@ class ConstantOp(IRDLOperation):
 @irdl_op_definition
 class DeclareOp(IRDLOperation):
     name     = "cobol.declare"
-    sym_name = prop_def(StringAttr)
+    value = prop_def(IntegerAttr | StringAttr)
     result   = result_def()
 
 @irdl_op_definition

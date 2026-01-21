@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from xdsl.context import Context
-from xdsl.dialects import builtin, emitc
+from xdsl.dialects import builtin
 from xdsl.dialects.arith import AndIOp, CmpiOp, OrIOp
 from xdsl.dialects.scf import IfOp, YieldOp
 from xdsl.dialects.builtin import (
@@ -262,45 +262,30 @@ def processStatements(body, lines, first_run) -> ModuleOp:
             type = data.get("type")
             length = data.get("length")
 
+            if not literal:
+                literal = 0 if type == "num" else ""
+
+            if type == "num":
+                for width in (8, 16, 32, 64):
+                    if 10**length - 1 < 2**width:
+                        decl_value = IntegerAttr(literal, width)
+                        break
+                res_type = cobol_decimal(length, 0)
+            else:
+                decl_value = StringAttr(literal)
+                res_type = cobol_string(length)
+
             declOp = DeclareOp(
-                attributes={
-                    "sym_name": StringAttr(name)
-                },
-                result_types=[
-                    cobol_string(length)
-                        if type != "num"
-                        else cobol_decimal(length, 0)
-                ]
+                attributes={ "value": decl_value },
+                result_types=[res_type]
             )
             body.add_op(declOp)
 
-            symbol_table[name] = {
-                "value": literal.strip('\'') if not isinstance(literal, int) else literal,
-                "result": declOp.result
-            }
-
             if literal:
-                # ima i definiciju:
-                if type == "num":
-                    for width in (8, 16, 32, 64):
-                        if math.floor(math.log2(literal)) + 1 < 2**width:
-                            value_type = IntegerAttr(literal, width)
-                            break
-                    result = cobol_decimal(length, 0)
-                else:
-                    value_type = StringAttr(literal)
-                    result = cobol_string(length)
-
-                constOp = ConstantOp(
-                    attributes={"value": value_type},
-                    result_types=[result]
-                )
-
-                body.add_op(constOp)
-
-                moveOp = MoveOp(operands=[constOp.result, declOp.result])
-                body.add_op(moveOp)
-
+                symbol_table[name] = {
+                    "value": literal.strip('\'') if not isinstance(literal, int) else literal,
+                    "result": declOp.result
+                }
             continue
 
         elif operation.get("STOP"):
@@ -371,7 +356,6 @@ def main():
     lines = read_xml(src)
 
     # xdsl: translate to cobol dialect
-    #ctx = Context()
     module = emit_cobol_mlir(lines)
 
     print(module)
