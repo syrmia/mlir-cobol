@@ -230,29 +230,43 @@ def processStatements(body, lines, first_run) -> ModuleOp:
 
         elif operation.get("MOVE"):
             data = operation.get("MOVE")
-            var_name = data[0]
-            raw_value = data[1]
 
-            symbol_table[var_name]["value"] = data[1]
+            data_dst = data[0]
+            data_src = data[1]
 
-            if isinstance(raw_value, int):
-                value =  IntegerAttr(raw_value, I32)
-                res = cobol_decimal(raw_value, 0)
-            else:
-                value = StringAttr(raw_value)
-                res = cobol_string(len(raw_value))
+            if isinstance(data_src, int):
+                for width in (8, 16, 32, 64):
+                    if data_src - 1 < 2**width:
+                        value = IntegerAttr(data_src, width)
+                        break
+                res = cobol_decimal(len(str(data_src)), 0)
+
+            elif data_src in symbol_table:
+                symbol_table[data_dst]["value"] = data_src
+                sym_value = symbol_table[data_src]["value"]
+
+                if isinstance(sym_value, int):
+                    for width in (8, 16, 32, 64):
+                        if sym_value - 1 < 2**width:
+                            value = IntegerAttr(sym_value, width)
+                            break
+                    res = cobol_decimal(len(str(sym_value)), 0)
+                else:
+                    value = StringAttr(sym_value)
+                    res = cobol_string(len(sym_value))
+
+            else: # type[src] = string
+                value = StringAttr(data_src)
+                res = cobol_string(len(data_src))
 
             constOp = ConstantOp(
                 attributes={"value": value },
                 result_types=[res]
             )
             body.add_op(constOp)
-            body.add_op(MoveOp(
-                operands=[
-                    constOp.result,
-                    symbol_table[var_name]["result"]
-                    ]
-                ))
+            src = constOp.result
+            dst = symbol_table[data_dst]["result"]
+            body.add_op(MoveOp(operands=[src, dst]))
             continue
 
         elif operation.get("PICTURE"):
@@ -286,6 +300,11 @@ def processStatements(body, lines, first_run) -> ModuleOp:
                     "value": literal.strip('\'') if not isinstance(literal, int) else literal,
                     "result": declOp.result
                 }
+            else:
+                symbol_table[name] = {
+                    "value" : None,
+                    "result" : declOp.result
+                }
             continue
 
         elif operation.get("STOP"):
@@ -297,7 +316,7 @@ def processStatements(body, lines, first_run) -> ModuleOp:
             break
 
 
-def emit_cobol_mlir(lines):
+def emit_cobol_dialect(lines):
     ctx = Context()
     ctx.register_dialect("builtin", lambda c: builtin.Builtin(c))
     ctx.register_dialect("cobol", lambda c: COBOL)
@@ -356,7 +375,7 @@ def main():
     lines = read_xml(src)
 
     # xdsl: translate to cobol dialect
-    module = emit_cobol_mlir(lines)
+    module = emit_cobol_dialect(lines)
 
     print(module)
 

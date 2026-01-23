@@ -142,10 +142,10 @@ def handle_dataDescriptionEntry(elem):
         literal = int(integer_literal)
 
     return { "PICTURE": {
-        "name" : name,
+        "name"    : name,
         "literal" : literal,
-        "type" : type,
-        "length" : length
+        "type"    : type,
+        "length"  : length
         }
     }
 
@@ -190,10 +190,28 @@ def handle_ifStatement(elem):
             }
         }
 
+
 def handle_moveStatement(elem):
     value = extractText(elem, "literalValue")
-    var_name = extractText(elem, "cobolWord")
+
+    if not value:
+        sendingOprnd = extractText(elem, "sending//identifier")
+        allOprnds = extractText(elem, "identifier")
+        receivingOprnd = allOprnds[len(allOprnds)-len(sendingOprnd):]
+        return {
+            "MOVE": [
+                receivingOprnd,
+                sendingOprnd
+            ]
+        }
+
+    var_name  = extractText(elem, "cobolWord")
+    int_value = extractText(elem, "integerLiteral")
+    str_value = extractText(elem, "alphanumericLiteral")
+    value = int(int_value) if int_value else str_value.strip("\"").strip("\'")
+
     return { "MOVE": [var_name, value] }
+
 
 def handle_programIdParagraph(elem):
     return { "PROGRAM-ID": extractText(elem, "alphanumericConstant") }
