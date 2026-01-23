@@ -28,7 +28,7 @@ from xdsl.context import Context
 from xdsl.dialects.builtin import (
     AnyTensorType,
     ArrayAttr,
-    DenseIntOrFPElementsAttr, TypedAttribute,
+    TypedAttribute,
     FunctionType,
     I8,
     IntAttr,
@@ -106,11 +106,12 @@ class ConvertConstantOp(RewritePattern):
 
         if isinstance(val, IntegerAttr):
             const_op = EmitC_ConstantOp(
-                value=int(val.value.data)
+                value=val
             )
         else:
+            fixed_string = "\"" + val.data.strip("\"").strip("\'") + "\""
             const_op = EmitC_ConstantOp(
-                value=StringAttr(val.data.strip('\'').strip('\"'))
+                value=EmitC_OpaqueAttr(StringAttr(fixed_string))
             )
         rewriter.replace_op(op, const_op)
 
@@ -123,15 +124,16 @@ class ConvertDeclareOp(RewritePattern):
         op_res_type = op.result.type
 
         if isinstance(op_res_type, IntegerType):
-            new_op = EmitC_ConstantOp(
-                value=sym_value
+            var_op = EmitC_VariableOp(
+                EmitC_OpaqueAttr(StringAttr(str(sym_value.value.data))),
+                EmitC_LValueType(op_res_type)
             )
-            rewriter.replace_op(op, new_op)
+            rewriter.replace_op(op, var_op)
 
         elif isinstance(op_res_type, EmitC_LValueType | EmitC_ArrayType):
             fixed_string = sym_value.data.strip("\"").strip("\'")
             var_op  = EmitC_VariableOp(
-                emitc.EmitC_OpaqueAttr(StringAttr("\"" + fixed_string + "\"")),
+                EmitC_OpaqueAttr(StringAttr("\"" + fixed_string + "\"")),
                 op_res_type
             )
             rewriter.replace_op(op, var_op)
@@ -147,14 +149,11 @@ class ConvertDisplayOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: DisplayOp, rewriter: PatternRewriter):
         args = op.args
-
         verbatim_op = EmitC_VerbatimOp(
             value=StringAttr("std::cout << {};"),
             operands=list(args)
         )
         rewriter.replace_op(op, verbatim_op)
-
-        #rewriter.replace_op(op, EmitC_VerbatimOp(value=StringAttr("std::cout << \"bla bla\";"), operands=None))
 
 
 @dataclass
