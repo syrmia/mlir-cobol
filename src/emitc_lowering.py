@@ -219,16 +219,16 @@ class ConvertCobolToEmitcPass(ModulePass):
     name = "convert_cobol_to_emitc"
 
     def add_includes(self, module: ModuleOp) -> None:
-        includes_to_add = set()
+        includes_to_add = []
 
         for op in module.walk():
             if isinstance(op, DisplayOp) and "iostream" not in includes_to_add:
-                includes_to_add.add("iostream")
+                includes_to_add.append("iostream")
             elif isinstance(op, DeclareOp):
                 if isinstance(op.attributes["value"], IntegerAttr) and "cstdint" not in includes_to_add:
-                    includes_to_add.add("cstdint")
+                    includes_to_add.append("cstdint")
                 elif isinstance(op.attributes["value"], StringAttr) and "string" not in includes_to_add:
-                    includes_to_add.add("string")
+                    includes_to_add.append("string")
 
         for inc in includes_to_add:
             include_op = EmitC_IncludeOp(
@@ -274,4 +274,4 @@ def lower_to_emitc(module):
 
     ConvertCobolToEmitcPass().apply(Context(), module)
 
-    return None
+    return module
