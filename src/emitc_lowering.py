@@ -94,7 +94,13 @@ class CobolStringTypeConversion(TypeConversionPattern):
 class ConvertAcceptOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: AcceptOp, rewriter: PatternRewriter):
-        print("Rewriting accept op")
+        args = op.args
+        string_arg = "std::cin >> {};"
+        verbatim_op = EmitC_VerbatimOp(
+            value=StringAttr(string_arg),
+            operands=args
+        )
+        rewriter.replace_op(op, verbatim_op)
 
 
 @dataclass
@@ -221,7 +227,7 @@ class ConvertCobolToEmitcPass(ModulePass):
         includes_to_add = []
 
         for op in module.walk():
-            if isinstance(op, DisplayOp) and "iostream" not in includes_to_add:
+            if (isinstance(op, DisplayOp) or isinstance(op, AcceptOp)) and "iostream" not in includes_to_add:
                 includes_to_add.append("iostream")
             elif isinstance(op, DeclareOp):
                 if isinstance(op.attributes["value"], IntegerAttr) and "cstdint" not in includes_to_add:
