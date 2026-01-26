@@ -1,0 +1,17 @@
+# Test: Variable declarations with PIC clause and DISPLAY with multiple args: from COBOL to C++
+# REQUIRES: koopa
+# RUN: %cobol-translate %S/../examples/decls.cbl --emit=emitc -o %S/Output/decls.mlir | \
+# RUN: %mlir-translate --mlir-to-cpp %S/Output/decls.mlir | FileCheck %s
+
+# CHECK: #include <iostream>
+# CHECK-NEXT: #include <cstdint>
+# CHECK-NEXT: #include <string>
+# CHECK-NEXT: void SimpleVariable() {
+# CHECK-NEXT:   std::string v1 = "Duke";
+# CHECK-NEXT:   int8_t v2 = 32;
+# CHECK-NEXT:   std::string v3 = "Name: ";
+# CHECK-NEXT:   std::cout << v3 << v1;
+# CHECK-NEXT:   std::string v4 = "Age: ";
+# CHECK-NEXT:   std::cout << v4 << v2;
+# CHECK-NEXT:   return;
+# CHECK-NEXT: }
