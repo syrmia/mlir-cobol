@@ -70,7 +70,6 @@ from xdsl.pattern_rewriter import (
     op_type_rewrite_pattern
 )
 from xdsl.passes import ModulePass
-from xdsl.ir import SSAValue
 
 class CobolDecimalTypeConversion(TypeConversionPattern):
     @attr_type_rewrite_pattern
@@ -163,7 +162,7 @@ class ConvertFuncOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: FunctionOp, rewriter: PatternRewriter, /):
         new_func = FuncOp(
-            op.attributes["sym_name"].data,
+            op.attributes["sym_name"].data.replace('-', '_'),
             FunctionType.from_lists([], []),
             region=op.body.clone()
         )
