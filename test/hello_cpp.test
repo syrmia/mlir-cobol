@@ -1,0 +1,11 @@
+# Test: Hello World COBOL program with DISPLAY: from COBOL to C++
+# REQUIRES: koopa
+# RUN: %cobol-translate %S/../examples/hello.cbl --emit=emitc -o %S/Output/hello.mlir | \
+# RUN: %mlir-translate --mlir-to-cpp %S/Output/hello.mlir | FileCheck %s
+
+# CHECK: #include <iostream>
+# CHECK-NEXT: void HELLO_WORLD() {
+# CHECK-NEXT:   std::string v1 = "Hello world";
+# CHECK-NEXT:   std::cout << v1;
+# CHECK-NEXT:   return;
+# CHECK-NEXT: }

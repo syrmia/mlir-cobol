@@ -1,4 +1,4 @@
-# Test: minimal COBOL program with just STOP RUN
+# Test: minimal COBOL program with just STOP RUN.
 # REQUIRES: koopa
 # RUN: %cobol-translate %S/../examples/just_stop.cbl 2>&1 | FileCheck %s
 

@@ -1,0 +1,14 @@
+# Test: Various declarations
+# REQUIRES: koopa
+# RUN: %cobol-translate %S/../examples/var_decl_and_def.cbl 2>&1 | FileCheck %s
+
+# CHECK: builtin.module
+# CHECK: "cobol.func"
+# CHECK: "cobol.declare"
+# CHECK: value = 25
+# CHECK: "cobol.declare"
+# CHECK: value = "\"Duke\""
+# CHECK: "cobol.declare"
+# CHECK: value = 0
+# CHECK: "cobol.stop"
+# CHECK: sym_name = "Variables"

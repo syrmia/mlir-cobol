@@ -1,5 +1,5 @@
        IDENTIFICATION DIVISION.
-       PROGRAM-ID. SimpleVariable.
+       PROGRAM-ID. display.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

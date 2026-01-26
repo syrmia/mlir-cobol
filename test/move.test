@@ -1,0 +1,23 @@
+# Test: Various declarations and assigns
+# REQUIRES: koopa
+# RUN: %cobol-translate %S/../examples/move.cbl 2>&1 | FileCheck %s
+
+# CHECK: builtin.module
+# CHECK: "cobol.func"
+# CHECK: "cobol.declare"
+# CHECK: value = 2
+# CHECK: "cobol.declare"
+# CHECK: value = ""
+# CHECK: "cobol.declare"
+# CHECK: value = 0
+# CHECK: "cobol.constant"
+# CHECK: value = 2
+# CHECK: "cobol.move"
+# CHECK: "cobol.constant"
+# CHECK: value = "mau"
+# CHECK: "cobol.move"
+# CHECK: "cobol.constant"
+# CHECK: value = 8
+# CHECK: "cobol.move"
+# CHECK: "cobol.stop"
+# CHECK: sym_name = "moves"

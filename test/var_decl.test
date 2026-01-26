@@ -1,0 +1,10 @@
+# Test: Simple variable declaration
+# REQUIRES: koopa
+# RUN: %cobol-translate %S/../examples/var_decl.cbl 2>&1 | FileCheck %s
+
+# CHECK: builtin.module
+# CHECK: "cobol.func"
+# CHECK: "cobol.declare"
+# CHECK: value = 0
+# CHECK: "cobol.stop"
+# CHECK: sym_name = "Declaration"

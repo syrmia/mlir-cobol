@@ -1,6 +1,6 @@
 # Test: Variable declarations with PIC clause and DISPLAY with multiple args
 # REQUIRES: koopa
-# RUN: %cobol-translate %S/../examples/decls.cbl 2>&1 | FileCheck %s
+# RUN: %cobol-translate %S/../examples/display_mul.cbl 2>&1 | FileCheck %s
 
 # CHECK: builtin.module
 # CHECK: "cobol.func"
@@ -15,4 +15,4 @@
 # CHECK: value = "Age: "
 # CHECK: "cobol.display"
 # CHECK: "cobol.stop"
-# CHECK: sym_name = "SimpleVariable"
+# CHECK: sym_name = "display"
