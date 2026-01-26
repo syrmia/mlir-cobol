@@ -1,5 +1,5 @@
        IDENTIFICATION DIVISION.
-       PROGRAM-ID. stdin.
+       PROGRAM-ID. input.
        DATA DIVISION.
        WORKING-STORAGE SECTION.
        01 n PIC X.
