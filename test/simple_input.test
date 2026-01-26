@@ -5,7 +5,7 @@
 # CHECK: builtin.module
 # CHECK: "cobol.func"
 # CHECK: "cobol.declare"
-# CHECK: sym_name = "n"
+# CHECK: value = ""
 # CHECK: "cobol.accept"
 # CHECK: "cobol.stop"
 # CHECK: sym_name = "stdin"
