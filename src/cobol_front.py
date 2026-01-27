@@ -10,19 +10,21 @@ from pathlib import Path
 
 from xdsl.context import Context
 from xdsl.dialects import builtin
-from xdsl.dialects.arith import AndIOp, CmpiOp, OrIOp
 from xdsl.dialects.scf import IfOp, YieldOp
 from xdsl.dialects.builtin import (
-    Block, FunctionType, IntAttr, IntegerAttr, IntegerType, ModuleOp, Region, StringAttr
+    Block, FunctionType, IntegerAttr, IntegerType, ModuleOp, Region, StringAttr
 )
 from xdsl.ir import OpResult
 from xdsl.printer import Printer
 from cobol_dialect import (
     COBOL,
+    CobolBoolType,
     CobolDecimalType,
     CobolStringType,
     AcceptOp,
     AddOp,
+    AndIOp,
+    CmpIOp,
     ConstantOp,
     DeclareOp,
     DisplayOp,
@@ -30,16 +32,17 @@ from cobol_dialect import (
     IsOp,
     MoveOp,
     NotOp,
+    OrIOp,
     StopRunOp,
     SetOp
 )
 from emitc_lowering import lower_to_emitc
 from util.xml_handlers import process_node
-import math
 
 
 # MLIR generation helpers.
 I32 = IntegerType(32)
+def cobol_bool(): return CobolBoolType()
 def cobol_string(n: int): return CobolStringType(IntegerAttr(n, I32))
 def cobol_decimal(d: int, s: int=0): return CobolDecimalType(IntegerAttr(d, I32), IntegerAttr(s, I32))
 
@@ -103,7 +106,10 @@ def process_cond(body, cond):
         if tok.lower() == "and":
             lhs = process_cond(body, cond[:i])
             rhs = process_cond(body, cond[i + 1:])
-            and_op = AndIOp(operand1=lhs, operand2=rhs)
+            and_op = AndIOp(
+                operands=[lhs, rhs],
+                result_types=[cobol_bool()]
+            )
             body.add_op(and_op)
             return and_op.result
 
@@ -113,7 +119,10 @@ def process_cond(body, cond):
         if tok.lower() == "or":
             lhs = process_cond(body, cond[:i])
             rhs = process_cond(body, cond[i + 1:])
-            or_op = OrIOp(operand1=lhs, operand2=rhs)
+            or_op = OrIOp(
+                operands=[lhs, rhs],
+                result_types=[cobol_bool()]
+            )
             body.add_op(or_op)
             return or_op.result
 
@@ -137,7 +146,7 @@ def process_cond(body, cond):
                     "kind" : StringAttr(kind),
                     "is_positive" : StringAttr(pos)
                 },
-                result_types=[cobol_decimal(1,0)]
+                result_types=[cobol_bool()]
             )
             body.add_op(is_op)
             return is_op.result
@@ -153,13 +162,14 @@ def process_cond(body, cond):
             return not_op.result
 
     for i, tok in enumerate(cond):
-        if tok in ("slt", "sle", "sgt", "sge", "eq", "ne"):
+        comp_operators = ["eq", "ne", "slt", "sle", "sgt", "sge"]
+        if tok in comp_operators:
             lhs = process_cond(body, cond[:i])
             rhs = process_cond(body, cond[i + 1:])
-            cmp_op = CmpiOp(
-                operand1=lhs,
-                operand2=rhs,
-                arg=tok
+            cmp_op = CmpIOp(
+                operands=[lhs, rhs],
+                result_types=[cobol_bool()],
+                properties={ "predicate": IntegerAttr.from_int_and_width(comp_operators.index(tok), 8) }
             )
             body.add_op(cmp_op)
             return cmp_op.result
