@@ -20,6 +20,10 @@ from xdsl.irdl import (
 #  Type attributes
 # ─────────────────────────────────────────────────────────────────────────────
 @irdl_attr_definition
+class CobolBoolType(ParametrizedAttribute, TypeAttribute):
+    name = "cobol.bool"
+
+@irdl_attr_definition
 class CobolStringType(ParametrizedAttribute, TypeAttribute):
     name   = "cobol.string"
     length: IntegerAttr
@@ -50,6 +54,21 @@ class AddOp(IRDLOperation):
     name   = "cobol.add"
     lhs    = operand_def()
     rhs    = operand_def()
+    result = result_def()
+
+@irdl_op_definition
+class AndIOp(IRDLOperation):
+    name = "cobol.andi"
+    lfs = operand_def()
+    rhs = operand_def()
+    result = result_def()
+
+@irdl_op_definition
+class CmpIOp(IRDLOperation):
+    name = "cobol.cmpi"
+    predicate = prop_def(IntegerAttr)
+    lhs = operand_def()
+    rhs = operand_def()
     result = result_def()
 
 @irdl_op_definition
@@ -90,6 +109,13 @@ class NotOp(IRDLOperation):
     result = result_def()
 
 @irdl_op_definition
+class OrIOp(IRDLOperation):
+    name = "cobol.ori"
+    lhs = operand_def()
+    rhs = operand_def()
+    result = result_def()
+
+@irdl_op_definition
 class SetOp(IRDLOperation):
     name     = "cobol.set"
     sym_name = prop_def(StringAttr)
@@ -107,16 +133,20 @@ COBOL = Dialect(
     [
         AcceptOp,
         AddOp,
+        AndIOp,
+        CmpIOp,
         ConstantOp,
         DeclareOp,
         DisplayOp,
         FunctionOp,
         IsOp,
         MoveOp,
+        OrIOp,
         StopRunOp,
         SetOp
     ],
     [
+        CobolBoolType,
         CobolStringType,
         CobolDecimalType
     ],
