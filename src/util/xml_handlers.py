@@ -123,7 +123,7 @@ def handle_dataDescriptionEntry(elem):
     integer_literal = extractText(elem, "integerLiteral")
     scope = extractText(elem, "levelNumber")
 
-    # X(n), A(n), 9(n)
+    # X(n), A(n), 9(n) or X, 99,...
     pictureString = extractText(elem, "pictureString")
     type = (
         "alpha" if pictureString.startswith("A") else
@@ -134,7 +134,8 @@ def handle_dataDescriptionEntry(elem):
     if hasDef:
         length = int(pictureString.split("(")[1].split(")")[0])
     else:
-        length = 0
+        # count chars:
+        length = len(pictureString)
 
     if integer_literal.strip() == "":
         literal = string_literal
