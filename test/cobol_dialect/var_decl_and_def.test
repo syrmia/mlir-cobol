@@ -1,14 +1,12 @@
 # Test: Various declarations
 # REQUIRES: koopa
-# RUN: %cobol-translate %S/../examples/var_decl_and_def.cbl 2>&1 | FileCheck %s
+# RUN: %cobol-translate %S/inputs/var_decl_and_def.cbl 2>&1 | FileCheck %s
 
-# CHECK: builtin.module
-# CHECK: "cobol.func"
-# CHECK: "cobol.declare"
-# CHECK: value = 25
-# CHECK: "cobol.declare"
-# CHECK: value = "\"Duke\""
-# CHECK: "cobol.declare"
-# CHECK: value = 0
-# CHECK: "cobol.stop"
-# CHECK: sym_name = "Variables"
+# CHECK: builtin.module {
+# CHECK-NEXT:   "cobol.func"() ({
+# CHECK-NEXT:     %0 = "cobol.declare"() {value = 25 : i16} : () -> !cobol.decimal<3 : i32, 0 : i32>
+# CHECK-NEXT:     %1 = "cobol.declare"() {value = "\"Duke\""} : () -> !cobol.string<4 : i32>
+# CHECK-NEXT:     %2 = "cobol.declare"() {value = 0 : i8} : () -> !cobol.decimal<1 : i32, 0 : i32>
+# CHECK-NEXT:     "cobol.stop"() : () -> ()
+# CHECK-NEXT:   }) {sym_name = "Variables", function_type = () -> ()} : () -> ()
+# CHECK-NEXT: }

@@ -1,12 +1,11 @@
 # Test: Hello World COBOL program with DISPLAY
 # REQUIRES: koopa
-# RUN: %cobol-translate %S/../examples/hello.cbl 2>&1 | FileCheck %s
+# RUN: %cobol-translate %S/inputs/hello.cbl 2>&1 | FileCheck %s
 
-# CHECK: builtin.module
-# CHECK: "cobol.func"
-# CHECK: "cobol.constant"
-# CHECK: value = "Hello world"
-# CHECK: !cobol.string
-# CHECK: "cobol.display"
-# CHECK: "cobol.stop"
-# CHECK: sym_name = "HELLO-WORLD"
+# CHECK: builtin.module {
+# CHECK-NEXT:   "cobol.func"() ({
+# CHECK-NEXT:     %0 = "cobol.constant"() {value = "Hello world"} : () -> !cobol.string<11 : i32>
+# CHECK-NEXT:     "cobol.display"(%0) : (!cobol.string<11 : i32>) -> ()
+# CHECK-NEXT:     "cobol.stop"() : () -> ()
+# CHECK-NEXT:   }) {sym_name = "HELLO-WORLD", function_type = () -> ()} : () -> ()
+# CHECK-NEXT: }

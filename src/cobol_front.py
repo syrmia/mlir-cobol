@@ -137,7 +137,7 @@ def process_cond(body, cond):
                     "kind" : StringAttr(kind),
                     "is_positive" : StringAttr(pos)
                 },
-                result_types=[cobol_decimal(1,1)]
+                result_types=[cobol_decimal(1,0)]
             )
             body.add_op(is_op)
             return is_op.result

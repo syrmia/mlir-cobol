@@ -1,18 +1,15 @@
 # Test: Variable declarations with PIC clause and DISPLAY with multiple args
 # REQUIRES: koopa
-# RUN: %cobol-translate %S/../examples/display_mul.cbl 2>&1 | FileCheck %s
+# RUN: %cobol-translate %S/inputs/display_mul.cbl 2>&1 | FileCheck %s
 
-# CHECK: builtin.module
-# CHECK: "cobol.func"
-# CHECK: "cobol.declare"
-# CHECK: value = "'Duke'"
-# CHECK: "cobol.declare"
-# CHECK: value = 32
-# CHECK: "cobol.constant"
-# CHECK: value = "Name: "
-# CHECK: "cobol.display"
-# CHECK: "cobol.constant"
-# CHECK: value = "Age: "
-# CHECK: "cobol.display"
-# CHECK: "cobol.stop"
-# CHECK: sym_name = "display"
+# CHECK: builtin.module {
+# CHECK-NEXT:   "cobol.func"() ({
+# CHECK-NEXT:     %0 = "cobol.declare"() {value = "'Duke'"} : () -> !cobol.string<20 : i32>
+# CHECK-NEXT:     %1 = "cobol.declare"() {value = 32 : i8} : () -> !cobol.decimal<2 : i32, 0 : i32>
+# CHECK-NEXT:     %2 = "cobol.constant"() {value = "Name: "} : () -> !cobol.string<6 : i32>
+# CHECK-NEXT:     "cobol.display"(%2, %0) : (!cobol.string<6 : i32>, !cobol.string<20 : i32>) -> ()
+# CHECK-NEXT:     %3 = "cobol.constant"() {value = "Age: "} : () -> !cobol.string<5 : i32>
+# CHECK-NEXT:     "cobol.display"(%3, %1) : (!cobol.string<5 : i32>, !cobol.decimal<2 : i32, 0 : i32>) -> ()
+# CHECK-NEXT:     "cobol.stop"() : () -> ()
+# CHECK-NEXT:   }) {sym_name = "display", function_type = () -> ()} : () -> ()
+# CHECK-NEXT: }
