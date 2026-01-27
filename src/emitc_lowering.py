@@ -8,36 +8,32 @@ enabling generation of C code from COBOL programs.
 
 from cobol_dialect import (
     COBOL,
+    CobolBoolType,
     CobolDecimalType,
     CobolStringType,
     AcceptOp,
     AddOp,
+    AndIOp,
     ConstantOp,
+    CmpIOp,
     DeclareOp,
     DisplayOp,
     FunctionOp,
     IsOp,
     MoveOp,
     NotOp,
+    OrIOp,
     SetOp,
     StopRunOp
 )
 from dataclasses import dataclass
-from xdsl.builder import InsertPoint
 from xdsl.context import Context
 from xdsl.dialects.builtin import (
-    AnyTensorType,
-    ArrayAttr,
-    TypedAttribute,
     FunctionType,
-    I8,
-    IntAttr,
     IntegerAttr,
     IntegerType,
-    MemRefType,
     ModuleOp,
     StringAttr,
-    TensorType,
     UnitAttr
 )
 from xdsl.dialects import emitc
@@ -48,7 +44,10 @@ from xdsl.dialects.emitc import (
     EmitC_AssignOp,
     EmitC_CallOpaqueOp,
     EmitC_ConstantOp,
+    EmitC_CmpOp,
     EmitC_IncludeOp,
+    EmitC_LogicalAndOp,
+    EmitC_LogicalOrOp,
     EmitC_VariableOp,
     EmitC_VerbatimOp,
     EmitC_ArrayType,
@@ -70,6 +69,12 @@ from xdsl.pattern_rewriter import (
     op_type_rewrite_pattern
 )
 from xdsl.passes import ModulePass
+
+class CobolBoolTypeConversion(TypeConversionPattern):
+    @attr_type_rewrite_pattern
+    def convert_type(self, typ: CobolBoolType) -> EmitCIntegerType:
+        return EmitCIntegerType(1)
+
 
 class CobolDecimalTypeConversion(TypeConversionPattern):
     @attr_type_rewrite_pattern
@@ -101,6 +106,25 @@ class ConvertAcceptOp(RewritePattern):
             operands=args
         )
         rewriter.replace_op(op, verbatim_op)
+
+
+@dataclass
+class ConvertAndIOp(RewritePattern):
+    @op_type_rewrite_pattern
+    def match_and_rewrite(self, op: AndIOp, rewriter: PatternRewriter):
+        and_op = EmitC_LogicalAndOp(
+            op.operands[0],
+            op.operands[1],
+            IntegerType(1)
+        )
+        rewriter.replace_op(op, and_op)
+
+
+@dataclass
+class ConvertCmpIOp(RewritePattern):
+    @op_type_rewrite_pattern
+    def match_and_rewrite(self, op: CmpIOp, rewriter: PatternRewriter):
+        print("Rewriting cmp op")
 
 
 @dataclass
@@ -202,6 +226,18 @@ class ConvertNotOp(RewritePattern):
 
 
 @dataclass
+class ConvertOrIOp(RewritePattern):
+    @op_type_rewrite_pattern
+    def match_and_rewrite(self, op: OrIOp, rewriter: PatternRewriter):
+        or_op = EmitC_LogicalOrOp(
+            op.operands[0],
+            op.operands[1],
+            IntegerType(1)
+        )
+        rewriter.replace_op(op, or_op)
+
+
+@dataclass
 class ConvertSetOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: SetOp, rewriter: PatternRewriter):
@@ -248,9 +284,12 @@ class ConvertCobolToEmitcPass(ModulePass):
         PatternRewriteWalker(
             GreedyRewritePatternApplier(
                 [
+                    CobolBoolTypeConversion(),
                     CobolDecimalTypeConversion(),
                     CobolStringTypeConversion(),
                     ConvertAcceptOp(),
+                    ConvertAndIOp(),
+                    ConvertCmpIOp(),
                     ConvertConstantOp(),
                     ConvertDeclareOp(),
                     ConvertDisplayOp(),
@@ -259,6 +298,7 @@ class ConvertCobolToEmitcPass(ModulePass):
                     ConvertIsOp(),
                     ConvertMoveOp(),
                     ConvertNotOp(),
+                    ConvertOrIOp(),
                     ConvertStopOp(),
                     ConvertSetOp()
                 ]
