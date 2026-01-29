@@ -1,5 +1,5 @@
 # Test: Hello World COBOL program with DISPLAY: from COBOL to C++
-# REQUIRES: koopa
+# REQUIRES: koopa, mlir-translate
 # RUN: %cobol-translate %S/../examples/hello.cbl --emit=emitc -o %S/Output/hello.mlir | \
 # RUN: %mlir-translate --mlir-to-cpp %S/Output/hello.mlir | FileCheck %s
 

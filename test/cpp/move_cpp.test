@@ -1,5 +1,5 @@
 # Test: Various declarations and assigns: from COBOL to C++
-# REQUIRES: koopa
+# REQUIRES: koopa, mlir-translate
 # RUN: %cobol-translate %S/../examples/move.cbl --emit=emitc -o %S/Output/move.mlir | \
 # RUN: %mlir-translate --mlir-to-cpp %S/Output/move.mlir | FileCheck %s
 

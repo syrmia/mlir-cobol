@@ -1,5 +1,5 @@
 # Test: ACCEPT statement for reading input: from  COBOL to C++
-# REQUIRES: koopa
+# REQUIRES: koopa, mlir-translate
 # RUN: %cobol-translate %S/../examples/simple_input.cbl --emit=emitc -o %S/Output/simple_input.mlir | \
 # RUN: %mlir-translate --mlir-to-cpp %S/Output/simple_input.mlir | FileCheck %s
 

@@ -1,5 +1,5 @@
 # Test: Variable declarations with PIC clause and DISPLAY with one arg: from COBOL to C++
-# REQUIRES: koopa
+# REQUIRES: koopa, mlir-translate
 # RUN: %cobol-translate %S/../examples/display_one.cbl --emit=emitc -o %S/Output/display_one.mlir | \
 # RUN: %mlir-translate --mlir-to-cpp %S/Output/display_one.mlir | FileCheck %s
 

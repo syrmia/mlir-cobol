@@ -84,7 +84,19 @@ else:
 # Environment variables
 config.environment['PYTHONPATH'] = src_dir
 
-config.substitutions.append((
-    '%mlir-translate',
-    '/home/ana-marija/Desktop/LLVM/llvm-project/build/bin/mlir-translate'
-))
+# Find mlir-translate: check MLIR_TRANSLATE env var, then common paths, then PATH
+mlir_translate_path = os.environ.get('MLIR_TRANSLATE', '')
+if not mlir_translate_path:
+    for path in ['/opt/homebrew/opt/llvm@21/bin',
+                 '/opt/homebrew/opt/llvm/bin',
+                 '/usr/local/opt/llvm/bin',
+                 '/usr/bin']:
+        candidate = os.path.join(path, 'mlir-translate')
+        if os.path.exists(candidate):
+            mlir_translate_path = candidate
+            break
+if not mlir_translate_path:
+    mlir_translate_path = shutil.which('mlir-translate') or 'mlir-translate'
+config.substitutions.append(('%mlir-translate', mlir_translate_path))
+if os.path.isfile(mlir_translate_path):
+    config.available_features.add('mlir-translate')

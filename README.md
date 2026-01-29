@@ -154,6 +154,12 @@ Once the LLVM/MLIR is built, the translation can be performed using the `mlir-tr
 path-to-llvm-project/build/bin/mlir-translate --mlir-to-cpp out/emitc_code.mlir -o out/cpp_code.cpp
 ```
 
+To run tests that use `mlir-translate`, set:
+
+```bash
+export MLIR_TRANSLATE=/some/path/mlir-translate
+```
+
 ## Run tests
 
 ```bash

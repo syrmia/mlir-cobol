@@ -1,5 +1,5 @@
 # Test: Simple variable declaration: from COBOL to C++
-# REQUIRES: koopa
+# REQUIRES: koopa, mlir-translate
 # RUN: %cobol-translate %S/../examples/var_decl.cbl --emit=emitc -o %S/Output/var_decl.mlir | \
 # RUN: %mlir-translate --mlir-to-cpp %S/Output/var_decl.mlir | FileCheck %s
 

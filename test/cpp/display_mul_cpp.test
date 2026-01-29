@@ -1,5 +1,5 @@
 # Test: Variable declarations with PIC clause and DISPLAY with multiple args: from COBOL to C++
-# REQUIRES: koopa
+# REQUIRES: koopa, mlir-translate
 # RUN: %cobol-translate %S/../examples/display_mul.cbl --emit=emitc -o %S/Output/display_mul.mlir | \
 # RUN: %mlir-translate --mlir-to-cpp %S/Output/display_mul.mlir | FileCheck %s
 
