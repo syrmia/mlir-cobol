@@ -1,0 +1,25 @@
+# Test: IF-ELSE control flow with MOVE and comparison
+# REQUIRES: koopa
+# RUN: %cobol-translate %S/inputs/ifelse.cbl 2>&1 | FileCheck %s
+
+# CHECK: builtin.module {
+# CHECK-NEXT:   "cobol.func"() ({
+# CHECK-NEXT:     %0 = "cobol.declare"() {value = 0 : i8} : () -> !cobol.decimal<0 : i32, 0 : i32>
+# CHECK-NEXT:     %1 = "cobol.declare"() {value = 0 : i8} : () -> !cobol.decimal<0 : i32, 0 : i32>
+# CHECK-NEXT:     %2 = "cobol.constant"() {value = 10 : i8} : () -> !cobol.decimal<2 : i32, 0 : i32>
+# CHECK-NEXT:     "cobol.move"(%2, %0) : (!cobol.decimal<2 : i32, 0 : i32>, !cobol.decimal<0 : i32, 0 : i32>) -> ()
+# CHECK-NEXT:     %3 = "cobol.constant"() {value = 8 : i8} : () -> !cobol.decimal<1 : i32, 0 : i32>
+# CHECK-NEXT:     "cobol.move"(%3, %1) : (!cobol.decimal<1 : i32, 0 : i32>, !cobol.decimal<0 : i32, 0 : i32>) -> ()
+# CHECK-NEXT:     %4 = "cobol.is"(%1) <{kind = "numeric", is_positive = "true"}> : (!cobol.decimal<0 : i32, 0 : i32>) -> !cobol.decimal<1 : i32, 0 : i32>
+# CHECK-NEXT:     %5 = arith.cmpi sgt, %0, %1 : !cobol.decimal<0 : i32, 0 : i32>
+# CHECK-NEXT:     %6 = arith.andi %4, %5 : !cobol.decimal<1 : i32, 0 : i32>
+# CHECK-NEXT:     scf.if %6 {
+# CHECK-NEXT:       %7 = "cobol.constant"() {value = "OPERAND2 is smaller than OPERAND1"} : () -> !cobol.string<33 : i32>
+# CHECK-NEXT:       "cobol.display"(%7) : (!cobol.string<33 : i32>) -> ()
+# CHECK-NEXT:     } else {
+# CHECK-NEXT:       %8 = "cobol.constant"() {value = "OPERAND2 is not smaller or numeric"} : () -> !cobol.string<34 : i32>
+# CHECK-NEXT:       "cobol.display"(%8) : (!cobol.string<34 : i32>) -> ()
+# CHECK-NEXT:     }
+# CHECK-NEXT:     "cobol.stop"() : () -> ()
+# CHECK-NEXT:   }) {sym_name = "HELLOWORD", function_type = () -> ()} : () -> ()
+# CHECK-NEXT:  }

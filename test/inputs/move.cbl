@@ -1,0 +1,13 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. moves.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+           01 OPERAND1 PIC 9(1) VALUE 2.
+           01 OPERAND3 PIC X(4).
+           01 OPERAND2 PIC 9(1).
+       PROCEDURE DIVISION.
+           MOVE OPERAND1 TO OPERAND2.
+           MOVE "mau" TO OPERAND3.
+           MOVE 8 TO OPERAND2.
+      
+           STOP RUN.

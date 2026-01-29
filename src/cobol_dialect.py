@@ -19,12 +19,9 @@ from xdsl.irdl import (
 # ─────────────────────────────────────────────────────────────────────────────
 #  Type attributes
 # ─────────────────────────────────────────────────────────────────────────────
-@irdl_op_definition
-class FunctionOp(IRDLOperation):
-    name          = "cobol.func"
-    sym_name      = prop_def(StringAttr)
-    function_type = prop_def(FunctionType)
-    body          = region_def("single_block")
+@irdl_attr_definition
+class CobolBoolType(ParametrizedAttribute, TypeAttribute):
+    name = "cobol.bool"
 
 @irdl_attr_definition
 class CobolStringType(ParametrizedAttribute, TypeAttribute):
@@ -41,6 +38,13 @@ class CobolDecimalType(ParametrizedAttribute, TypeAttribute):
 #  Operation definitions
 # ─────────────────────────────────────────────────────────────────────────────
 @irdl_op_definition
+class FunctionOp(IRDLOperation):
+    name          = "cobol.func"
+    sym_name      = prop_def(StringAttr)
+    function_type = prop_def(FunctionType)
+    body          = region_def("single_block")
+
+@irdl_op_definition
 class AcceptOp(IRDLOperation):
     name     = "cobol.accept"
     args = operand_def(StringAttr)
@@ -53,6 +57,21 @@ class AddOp(IRDLOperation):
     result = result_def()
 
 @irdl_op_definition
+class AndIOp(IRDLOperation):
+    name = "cobol.andi"
+    lfs = operand_def()
+    rhs = operand_def()
+    result = result_def()
+
+@irdl_op_definition
+class CmpIOp(IRDLOperation):
+    name = "cobol.cmpi"
+    predicate = prop_def(IntegerAttr)
+    lhs = operand_def()
+    rhs = operand_def()
+    result = result_def()
+
+@irdl_op_definition
 class ConstantOp(IRDLOperation):
     name   = "cobol.constant"
     value  = prop_def(StringAttr | IntegerAttr)
@@ -61,7 +80,7 @@ class ConstantOp(IRDLOperation):
 @irdl_op_definition
 class DeclareOp(IRDLOperation):
     name     = "cobol.declare"
-    sym_name = prop_def(StringAttr)
+    value = prop_def(IntegerAttr | StringAttr)
     result   = result_def()
 
 @irdl_op_definition
@@ -90,6 +109,13 @@ class NotOp(IRDLOperation):
     result = result_def()
 
 @irdl_op_definition
+class OrIOp(IRDLOperation):
+    name = "cobol.ori"
+    lhs = operand_def()
+    rhs = operand_def()
+    result = result_def()
+
+@irdl_op_definition
 class SetOp(IRDLOperation):
     name     = "cobol.set"
     sym_name = prop_def(StringAttr)
@@ -107,16 +133,20 @@ COBOL = Dialect(
     [
         AcceptOp,
         AddOp,
+        AndIOp,
+        CmpIOp,
         ConstantOp,
         DeclareOp,
         DisplayOp,
         FunctionOp,
         IsOp,
         MoveOp,
+        OrIOp,
         StopRunOp,
         SetOp
     ],
     [
+        CobolBoolType,
         CobolStringType,
         CobolDecimalType
     ],

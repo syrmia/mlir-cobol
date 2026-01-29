@@ -1,0 +1,8 @@
+# Test: minimal COBOL program with just STOP RUN; from COBOL to C++
+# REQUIRES: koopa
+# RUN: %cobol-translate %S/../examples/just_stop.cbl --emit=emitc -o %S/Output/just_stop.mlir | \
+# RUN: %mlir-translate --mlir-to-cpp %S/Output/just_stop.mlir | FileCheck %s
+
+#CHECK: void just_stop() {
+#CHECK-NEXT:  return;
+#CHECK-NEXT: }

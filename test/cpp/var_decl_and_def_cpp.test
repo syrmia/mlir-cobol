@@ -1,0 +1,13 @@
+# Test: Various declarations: from COBOL to C++
+# REQUIRES: koopa
+# RUN: %cobol-translate %S/../examples/var_decl_and_def.cbl --emit=emitc -o %S/Output/var_decl_and_def.mlir | \
+# RUN: %mlir-translate --mlir-to-cpp %S/Output/var_decl_and_def.mlir | FileCheck %s
+
+#CHECK: #include <string>
+#CHECK-NEXT: #include <cstdint>
+#CHECK-NEXT: void Variables() {
+#CHECK-NEXT:   int16_t v1 = 25;
+#CHECK-NEXT:   std::string v2 = "Duke";
+#CHECK-NEXT:   int8_t v3 = 0;
+#CHECK-NEXT:   return;
+#CHECK-NEXT: }

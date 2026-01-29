@@ -1,0 +1,13 @@
+# Test: Variable declarations with PIC clause and DISPLAY with one arg
+# REQUIRES: koopa
+# RUN: %cobol-translate %S/inputs/display_one.cbl 2>&1 | FileCheck %s
+
+# CHECK: builtin.module {
+# CHECK-NEXT:   "cobol.func"() ({
+# CHECK-NEXT:     %0 = "cobol.declare"() {value = 25 : i16} : () -> !cobol.decimal<3 : i32, 0 : i32>
+# CHECK-NEXT:     %1 = "cobol.declare"() {value = "\"Duke\""} : () -> !cobol.string<4 : i32>
+# CHECK-NEXT:     "cobol.display"(%0) : (!cobol.decimal<3 : i32, 0 : i32>) -> ()
+# CHECK-NEXT:     "cobol.display"(%1) : (!cobol.string<4 : i32>) -> ()
+# CHECK-NEXT:     "cobol.stop"() : () -> ()
+# CHECK-NEXT:   }) {sym_name = "display", function_type = () -> ()} : () -> ()
+# CHECK-NEXT: }

@@ -1,0 +1,10 @@
+# Test: Simple variable declaration
+# REQUIRES: koopa
+# RUN: %cobol-translate %S/inputs/var_decl.cbl 2>&1 | FileCheck %s
+
+# CHECK: builtin.module {
+# CHECK-NEXT:   "cobol.func"() ({
+# CHECK-NEXT:     %0 = "cobol.declare"() {value = 0 : i8} : () -> !cobol.decimal<2 : i32, 0 : i32>
+# CHECK-NEXT:     "cobol.stop"() : () -> ()
+# CHECK-NEXT:   }) {sym_name = "Declaration", function_type = () -> ()} : () -> ()
+# CHECK-NEXT: }

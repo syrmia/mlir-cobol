@@ -1,0 +1,11 @@
+# Test: ACCEPT statement for reading input
+# REQUIRES: koopa
+# RUN: %cobol-translate %S/inputs/simple_input.cbl 2>&1 | FileCheck %s
+
+# CHECK: builtin.module {
+# CHECK-NEXT:   "cobol.func"() ({
+# CHECK-NEXT:     %0 = "cobol.declare"() {value = ""} : () -> !cobol.string<0 : i32>
+# CHECK-NEXT:     "cobol.accept"(%0) : (!cobol.string<0 : i32>) -> ()
+# CHECK-NEXT:     "cobol.stop"() : () -> ()
+# CHECK-NEXT:   }) {sym_name = "input", function_type = () -> ()} : () -> ()
+# CHECK-NEXT: }

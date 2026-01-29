@@ -83,3 +83,8 @@ else:
 
 # Environment variables
 config.environment['PYTHONPATH'] = src_dir
+
+config.substitutions.append((
+    '%mlir-translate',
+    '/home/ana-marija/Desktop/LLVM/llvm-project/build/bin/mlir-translate'
+))

@@ -27,7 +27,8 @@ from xdsl.builder import InsertPoint
 from xdsl.context import Context
 from xdsl.dialects.builtin import (
     AnyTensorType,
-    DenseIntOrFPElementsAttr, TypedAttribute,
+    ArrayAttr,
+    TypedAttribute,
     FunctionType,
     I8,
     IntAttr,
@@ -47,10 +48,14 @@ from xdsl.dialects.emitc import (
     EmitC_AssignOp,
     EmitC_CallOpaqueOp,
     EmitC_ConstantOp,
+    EmitC_IncludeOp,
     EmitC_VariableOp,
+    EmitC_VerbatimOp,
+    EmitC_ArrayType,
     EmitC_LValueType,
     EmitCIntegerType,
     EmitC_OpaqueType,
+    EmitC_OpaqueAttr,
     EmitC_PointerType
 )
 from xdsl.dialects.func import FuncOp, ReturnOp
@@ -65,40 +70,39 @@ from xdsl.pattern_rewriter import (
     op_type_rewrite_pattern
 )
 from xdsl.passes import ModulePass
-import math
 
 class CobolDecimalTypeConversion(TypeConversionPattern):
     @attr_type_rewrite_pattern
     def convert_type(self, type: CobolDecimalType) -> EmitCIntegerType:
-        num_digits = type.digits.value.data
-        num_bits = math.ceil(num_digits * 3.32)
+        length = type.digits.value.data
 
-        if num_bits < 2**8:
-            return EmitCIntegerType(8)
-        elif num_bits < 2**16:
-            return EmitCIntegerType(16)
-        elif num_bits < 2**32:
-            return EmitCIntegerType(32)
-        elif num_bits < 2**64:
-            return EmitCIntegerType(64)
-        else:
-            return "error" # ...
+        for width in (8, 16, 32, 64):
+            if 10**length - 1 < 2**width:
+                return EmitCIntegerType(width)
+
+        return "error" # ...
 
 
 class CobolStringTypeConversion(TypeConversionPattern):
     @attr_type_rewrite_pattern
     def convert_type(self, type: CobolStringType) -> EmitC_PointerType:
-        return EmitC_PointerType(EmitC_OpaqueType(StringAttr(f"char[{type.length}]")))
+        return EmitC_LValueType(EmitC_OpaqueType(StringAttr("std::string")))
+        #return EmitC_ArrayType([type.length.value.data + 1], EmitCIntegerType(8))
 
 
 @dataclass
 class ConvertAcceptOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: AcceptOp, rewriter: PatternRewriter):
-        print("Rewriting accept op")
+        args = op.args
+        string_arg = "std::cin >> {};"
+        verbatim_op = EmitC_VerbatimOp(
+            value=StringAttr(string_arg),
+            operands=args
+        )
+        rewriter.replace_op(op, verbatim_op)
 
 
-# TO DO
 @dataclass
 class ConvertConstantOp(RewritePattern):
     @op_type_rewrite_pattern
@@ -106,15 +110,13 @@ class ConvertConstantOp(RewritePattern):
         val = op.attributes["value"]
 
         if isinstance(val, IntegerAttr):
-            #width = val.type.width
-            #res_type = IntegerType(width)
-
-            const_op = EmitC_ConstantOp(
-                value=int(val.value.data)
-            )
-        else:
             const_op = EmitC_ConstantOp(
                 value=val
+            )
+        else:
+            fixed_string = "\"" + val.data.strip("\"").strip("\'") + "\""
+            const_op = EmitC_ConstantOp(
+                value=EmitC_OpaqueAttr(StringAttr(fixed_string))
             )
         rewriter.replace_op(op, const_op)
 
@@ -123,29 +125,42 @@ class ConvertConstantOp(RewritePattern):
 class ConvertDeclareOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: DeclareOp, rewriter: PatternRewriter):
-        sym_name = op.attributes["sym_name"]
+        sym_value = op.attributes["value"]
+        op_res_type = op.result.type
 
-        if isinstance(op.result.type, IntegerType):
-            emitc_type = op.result.type
-        elif isinstance(op.result.type, EmitC_PointerType):
-            emitc_type = op.result.type
+        if isinstance(op_res_type, IntegerType):
+            var_op = EmitC_VariableOp(
+                EmitC_OpaqueAttr(StringAttr(str(sym_value.value.data))),
+                EmitC_LValueType(op_res_type)
+            )
+            rewriter.replace_op(op, var_op)
+
+        elif isinstance(op_res_type, EmitC_LValueType | EmitC_ArrayType):
+            fixed_string = sym_value.data.strip("\"").strip("\'")
+            var_op  = EmitC_VariableOp(
+                EmitC_OpaqueAttr(StringAttr("\"" + fixed_string + "\"")),
+                op_res_type
+            )
+            rewriter.replace_op(op, var_op)
+
         else:
-            print("Type still not supported: ", op.result.type)
-            return
+            print("Type still not supported: ", op_res_type)
 
-        var  = EmitC_VariableOp(
-            emitc.EmitC_OpaqueAttr(sym_name),
-            EmitC_LValueType(emitc_type)
-        )
-
-        rewriter.replace_op(op, var)
+        return
 
 
 @dataclass
 class ConvertDisplayOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: DisplayOp, rewriter: PatternRewriter):
-        print("Rewriting display op")
+        args = op.args
+        placeholders = " << ".join("{}" for a in args)
+        string_arg = "std::cout << " + placeholders + ";"
+        verbatim_op = EmitC_VerbatimOp(
+            value=StringAttr(string_arg),
+            operands=list(args)
+        )
+        rewriter.replace_op(op, verbatim_op)
 
 
 @dataclass
@@ -153,7 +168,7 @@ class ConvertFuncOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: FunctionOp, rewriter: PatternRewriter, /):
         new_func = FuncOp(
-            op.attributes["sym_name"].data,
+            op.attributes["sym_name"].data.replace('-', '_'),
             FunctionType.from_lists([], []),
             region=op.body.clone()
         )
@@ -168,12 +183,15 @@ class ConvertIsOp(RewritePattern):
         print("Rewriting is op")
 
 
-# TO DO
 @dataclass
 class ConvertMoveOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: MoveOp, rewriter: PatternRewriter):
-        print("Rewriting move op")
+        new_op = EmitC_AssignOp(
+            var=op.dst,
+            value=op.src,
+        )
+        rewriter.replace_op(op, new_op)
 
 
 @dataclass
@@ -205,7 +223,28 @@ class ConvertCobolToEmitcPass(ModulePass):
 
     name = "convert_cobol_to_emitc"
 
+    def add_includes(self, module: ModuleOp) -> None:
+        includes_to_add = []
+
+        for op in module.walk():
+            if (isinstance(op, DisplayOp) or isinstance(op, AcceptOp)) and "iostream" not in includes_to_add:
+                includes_to_add.append("iostream")
+            elif isinstance(op, DeclareOp):
+                if isinstance(op.attributes["value"], IntegerAttr) and "cstdint" not in includes_to_add:
+                    includes_to_add.append("cstdint")
+                elif isinstance(op.attributes["value"], StringAttr) and "string" not in includes_to_add:
+                    includes_to_add.append("string")
+
+        for inc in includes_to_add:
+            include_op = EmitC_IncludeOp(
+                StringAttr(inc), UnitAttr()
+            )
+            module.body.block.insert_op_before(include_op, module.body.block.first_op)
+
+
     def apply(self, ctx: Context, op: ModuleOp) -> None:
+        self.add_includes(op)
+
         PatternRewriteWalker(
             GreedyRewritePatternApplier(
                 [
@@ -240,4 +279,4 @@ def lower_to_emitc(module):
 
     ConvertCobolToEmitcPass().apply(Context(), module)
 
-    return None
+    return module

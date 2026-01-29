@@ -1,0 +1,10 @@
+# Test: Simple variable declaration: from COBOL to C++
+# REQUIRES: koopa
+# RUN: %cobol-translate %S/../examples/var_decl.cbl --emit=emitc -o %S/Output/var_decl.mlir | \
+# RUN: %mlir-translate --mlir-to-cpp %S/Output/var_decl.mlir | FileCheck %s
+
+#CHECK: #include <cstdint>
+#CHECK-NEXT: void Declaration() {
+#CHECK-NEXT:   int8_t v1 = 0;
+#CHECK-NEXT:   return;
+#CHECK-NEXT: }

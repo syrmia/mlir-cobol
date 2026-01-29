@@ -1,0 +1,18 @@
+# Test: Various declarations and assigns
+# REQUIRES: koopa
+# RUN: %cobol-translate %S/inputs/move.cbl 2>&1 | FileCheck %s
+
+# CHECK: builtin.module {
+# CHECK-NEXT:   "cobol.func"() ({
+# CHECK-NEXT:     %0 = "cobol.declare"() {value = 2 : i8} : () -> !cobol.decimal<1 : i32, 0 : i32>
+# CHECK-NEXT:     %1 = "cobol.declare"() {value = ""} : () -> !cobol.string<4 : i32>
+# CHECK-NEXT:     %2 = "cobol.declare"() {value = 0 : i8} : () -> !cobol.decimal<1 : i32, 0 : i32>
+# CHECK-NEXT:     %3 = "cobol.constant"() {value = 2 : i8} : () -> !cobol.decimal<1 : i32, 0 : i32>
+# CHECK-NEXT:     "cobol.move"(%3, %2) : (!cobol.decimal<1 : i32, 0 : i32>, !cobol.decimal<1 : i32, 0 : i32>) -> ()
+# CHECK-NEXT:     %4 = "cobol.constant"() {value = "mau"} : () -> !cobol.string<3 : i32>
+# CHECK-NEXT:     "cobol.move"(%4, %1) : (!cobol.string<3 : i32>, !cobol.string<4 : i32>) -> ()
+# CHECK-NEXT:     %5 = "cobol.constant"() {value = 8 : i8} : () -> !cobol.decimal<1 : i32, 0 : i32>
+# CHECK-NEXT:     "cobol.move"(%5, %2) : (!cobol.decimal<1 : i32, 0 : i32>, !cobol.decimal<1 : i32, 0 : i32>) -> ()
+# CHECK-NEXT:     "cobol.stop"() : () -> ()
+# CHECK-NEXT:   }) {sym_name = "moves", function_type = () -> ()} : () -> ()
+# CHECK-NEXT: }

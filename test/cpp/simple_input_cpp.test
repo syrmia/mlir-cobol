@@ -1,0 +1,12 @@
+# Test: ACCEPT statement for reading input: from  COBOL to C++
+# REQUIRES: koopa
+# RUN: %cobol-translate %S/../examples/simple_input.cbl --emit=emitc -o %S/Output/simple_input.mlir | \
+# RUN: %mlir-translate --mlir-to-cpp %S/Output/simple_input.mlir | FileCheck %s
+
+#CHECK: #include <iostream>
+#CHECK-NEXT: #include <string>
+#CHECK-NEXT: void input() {
+#CHECK-NEXT:   std::string v1 = "";
+#CHECK-NEXT:   std::cin >> v1;
+#CHECK-NEXT:   return;
+#CHECK-NEXT: }

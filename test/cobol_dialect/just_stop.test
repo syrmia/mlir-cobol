@@ -1,0 +1,8 @@
+# Test: minimal COBOL program with just STOP RUN.
+# REQUIRES: koopa
+# RUN: %cobol-translate %S/inputs/just_stop.cbl 2>&1 | FileCheck %s
+
+# CHECK: builtin.module
+# CHECK-NEXT: "cobol.func"
+# CHECK-NEXT: "cobol.stop"
+# CHECK-NEXT: sym_name = "just_stop"

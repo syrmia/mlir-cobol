@@ -1,0 +1,19 @@
+# Test: Various declarations and assigns: from COBOL to C++
+# REQUIRES: koopa
+# RUN: %cobol-translate %S/../examples/move.cbl --emit=emitc -o %S/Output/move.mlir | \
+# RUN: %mlir-translate --mlir-to-cpp %S/Output/move.mlir | FileCheck %s
+
+#CHECK: #include <string>
+#CHECK-NEXT: #include <cstdint>
+#CHECK-NEXT: void moves() {
+#CHECK-NEXT:   int8_t v1 = 2;
+#CHECK-NEXT:   std::string v2 = "";
+#CHECK-NEXT:   int8_t v3 = 0;
+#CHECK-NEXT:   int8_t v4 = 2;
+#CHECK-NEXT:   v3 = v4;
+#CHECK-NEXT:   std::string v5 = "mau";
+#CHECK-NEXT:   v2 = v5;
+#CHECK-NEXT:   int8_t v6 = 8;
+#CHECK-NEXT:   v3 = v6;
+#CHECK-NEXT:   return;
+#CHECK-NEXT: }

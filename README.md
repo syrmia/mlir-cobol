@@ -143,6 +143,17 @@ builtin.module {
 }
 ```
 
+## Dependencies
+
+After emitting cobol dialect mlir code into EmitC dialect, it is possible to convert the EmitC code into C++, using the C++ emitter.
+
+For this project, a locally built version of LLVM/MLIR was used, and the `mlir-translate` tool was invoked directly from the LLVM build directory.
+
+Once the LLVM/MLIR is built, the translation can be performed using the `mlir-translate` binary:
+```
+path-to-llvm-project/build/bin/mlir-translate --mlir-to-cpp out/emitc_code.mlir -o out/cpp_code.cpp
+```
+
 ## Run tests
 
 ```bash

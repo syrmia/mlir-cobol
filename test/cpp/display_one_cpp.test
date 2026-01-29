@@ -1,0 +1,15 @@
+# Test: Variable declarations with PIC clause and DISPLAY with one arg: from COBOL to C++
+# REQUIRES: koopa
+# RUN: %cobol-translate %S/../examples/display_one.cbl --emit=emitc -o %S/Output/display_one.mlir | \
+# RUN: %mlir-translate --mlir-to-cpp %S/Output/display_one.mlir | FileCheck %s
+
+# CHECK: #include <iostream>
+# CHECK-NEXT: #include <string>
+# CHECK-NEXT: #include <cstdint>
+# CHECK-NEXT: void display() {
+# CHECK-NEXT:   int16_t v1 = 25;
+# CHECK-NEXT:   std::string v2 = "Duke";
+# CHECK-NEXT:   std::cout << v1;
+# CHECK-NEXT:   std::cout << v2;
+# CHECK-NEXT:   return;
+# CHECK-NEXT: }

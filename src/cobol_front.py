@@ -9,20 +9,22 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from xdsl.context import Context
-from xdsl.dialects import builtin, emitc
-from xdsl.dialects.arith import AndIOp, CmpiOp, OrIOp
+from xdsl.dialects import builtin
 from xdsl.dialects.scf import IfOp, YieldOp
 from xdsl.dialects.builtin import (
-    Block, FunctionType, IntAttr, IntegerAttr, IntegerType, ModuleOp, Region, StringAttr
+    Block, FunctionType, IntegerAttr, IntegerType, ModuleOp, Region, StringAttr
 )
 from xdsl.ir import OpResult
 from xdsl.printer import Printer
 from cobol_dialect import (
     COBOL,
+    CobolBoolType,
     CobolDecimalType,
     CobolStringType,
     AcceptOp,
     AddOp,
+    AndIOp,
+    CmpIOp,
     ConstantOp,
     DeclareOp,
     DisplayOp,
@@ -30,6 +32,7 @@ from cobol_dialect import (
     IsOp,
     MoveOp,
     NotOp,
+    OrIOp,
     StopRunOp,
     SetOp
 )
@@ -39,6 +42,7 @@ from util.xml_handlers import process_node
 
 # MLIR generation helpers.
 I32 = IntegerType(32)
+def cobol_bool(): return CobolBoolType()
 def cobol_string(n: int): return CobolStringType(IntegerAttr(n, I32))
 def cobol_decimal(d: int, s: int=0): return CobolDecimalType(IntegerAttr(d, I32), IntegerAttr(s, I32))
 
@@ -102,7 +106,10 @@ def process_cond(body, cond):
         if tok.lower() == "and":
             lhs = process_cond(body, cond[:i])
             rhs = process_cond(body, cond[i + 1:])
-            and_op = AndIOp(operand1=lhs, operand2=rhs)
+            and_op = AndIOp(
+                operands=[lhs, rhs],
+                result_types=[cobol_bool()]
+            )
             body.add_op(and_op)
             return and_op.result
 
@@ -112,7 +119,10 @@ def process_cond(body, cond):
         if tok.lower() == "or":
             lhs = process_cond(body, cond[:i])
             rhs = process_cond(body, cond[i + 1:])
-            or_op = OrIOp(operand1=lhs, operand2=rhs)
+            or_op = OrIOp(
+                operands=[lhs, rhs],
+                result_types=[cobol_bool()]
+            )
             body.add_op(or_op)
             return or_op.result
 
@@ -136,7 +146,7 @@ def process_cond(body, cond):
                     "kind" : StringAttr(kind),
                     "is_positive" : StringAttr(pos)
                 },
-                result_types=[cobol_decimal(1,1)]
+                result_types=[cobol_bool()]
             )
             body.add_op(is_op)
             return is_op.result
@@ -152,13 +162,14 @@ def process_cond(body, cond):
             return not_op.result
 
     for i, tok in enumerate(cond):
-        if tok in ("slt", "sle", "sgt", "sge", "eq", "ne"):
+        comp_operators = ["eq", "ne", "slt", "sle", "sgt", "sge"]
+        if tok in comp_operators:
             lhs = process_cond(body, cond[:i])
             rhs = process_cond(body, cond[i + 1:])
-            cmp_op = CmpiOp(
-                operand1=lhs,
-                operand2=rhs,
-                arg=tok
+            cmp_op = CmpIOp(
+                operands=[lhs, rhs],
+                result_types=[cobol_bool()],
+                properties={ "predicate": IntegerAttr.from_int_and_width(comp_operators.index(tok), 8) }
             )
             body.add_op(cmp_op)
             return cmp_op.result
@@ -229,29 +240,43 @@ def processStatements(body, lines, first_run) -> ModuleOp:
 
         elif operation.get("MOVE"):
             data = operation.get("MOVE")
-            var_name = data[0]
-            raw_value = data[1]
 
-            symbol_table[var_name]["value"] = data[1]
+            data_dst = data[0]
+            data_src = data[1]
 
-            if isinstance(raw_value, int):
-                value =  IntegerAttr(raw_value, I32)
-                res = cobol_decimal(raw_value, 0)
-            else:
-                value = StringAttr(raw_value)
-                res = cobol_string(len(raw_value))
+            if isinstance(data_src, int):
+                for width in (8, 16, 32, 64):
+                    if data_src - 1 < 2**width:
+                        value = IntegerAttr(data_src, width)
+                        break
+                res = cobol_decimal(len(str(data_src)), 0)
+
+            elif data_src in symbol_table:
+                symbol_table[data_dst]["value"] = data_src
+                sym_value = symbol_table[data_src]["value"]
+
+                if isinstance(sym_value, int):
+                    for width in (8, 16, 32, 64):
+                        if sym_value - 1 < 2**width:
+                            value = IntegerAttr(sym_value, width)
+                            break
+                    res = cobol_decimal(len(str(sym_value)), 0)
+                else:
+                    value = StringAttr(sym_value)
+                    res = cobol_string(len(sym_value))
+
+            else: # type[src] = string
+                value = StringAttr(data_src)
+                res = cobol_string(len(data_src))
 
             constOp = ConstantOp(
                 attributes={"value": value },
                 result_types=[res]
             )
             body.add_op(constOp)
-            body.add_op(MoveOp(
-                operands=[
-                    constOp.result,
-                    symbol_table[var_name]["result"]
-                    ]
-                ))
+            src = constOp.result
+            dst = symbol_table[data_dst]["result"]
+            body.add_op(MoveOp(operands=[src, dst]))
             continue
 
         elif operation.get("PICTURE"):
@@ -261,42 +286,35 @@ def processStatements(body, lines, first_run) -> ModuleOp:
             type = data.get("type")
             length = data.get("length")
 
+            if not literal:
+                literal = 0 if type == "num" else ""
+
+            if type == "num":
+                for width in (8, 16, 32, 64):
+                    if 10**length - 1 < 2**width:
+                        decl_value = IntegerAttr(literal, width)
+                        break
+                res_type = cobol_decimal(length, 0)
+            else:
+                decl_value = StringAttr(literal)
+                res_type = cobol_string(length)
+
             declOp = DeclareOp(
-                attributes={
-                    "sym_name": StringAttr(name)
-                },
-                result_types=[
-                    cobol_string(length)
-                        if type != "num"
-                        else cobol_decimal(length, 0)
-                ]
+                attributes={ "value": decl_value },
+                result_types=[res_type]
             )
             body.add_op(declOp)
 
-            symbol_table[name] = {
-                "value": literal,
-                "result": declOp.result
-            }
-
             if literal:
-                # ima i definiciju:
-                constOp = ConstantOp(
-                    attributes={
-                        "value": StringAttr(literal)
-                        if type != "num"
-                        else IntegerAttr(literal, I32)
-                    },
-                    result_types=[
-                        cobol_string(length)
-                        if type != "num"
-                        else cobol_decimal(length, 0)
-                    ]
-                )
-                body.add_op(constOp)
-
-                moveOp = MoveOp(operands=[constOp.result, declOp.result])
-                body.add_op(moveOp)
-
+                symbol_table[name] = {
+                    "value": literal.strip('\'') if not isinstance(literal, int) else literal,
+                    "result": declOp.result
+                }
+            else:
+                symbol_table[name] = {
+                    "value" : None,
+                    "result" : declOp.result
+                }
             continue
 
         elif operation.get("STOP"):
@@ -308,7 +326,7 @@ def processStatements(body, lines, first_run) -> ModuleOp:
             break
 
 
-def emit_cobol_mlir(lines):
+def emit_cobol_dialect(lines):
     ctx = Context()
     ctx.register_dialect("builtin", lambda c: builtin.Builtin(c))
     ctx.register_dialect("cobol", lambda c: COBOL)
@@ -367,8 +385,7 @@ def main():
     lines = read_xml(src)
 
     # xdsl: translate to cobol dialect
-    #ctx = Context()
-    module = emit_cobol_mlir(lines)
+    module = emit_cobol_dialect(lines)
 
     print(module)
 

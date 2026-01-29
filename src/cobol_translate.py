@@ -8,7 +8,7 @@ import os
 import sys
 from pathlib import Path
 
-from cobol_front import run_koopa, read_xml, emit_cobol_mlir
+from cobol_front import run_koopa, read_xml, emit_cobol_dialect
 from emitc_lowering import lower_to_emitc
 
 
@@ -70,7 +70,7 @@ def main():
     lines = read_xml(args.input)
 
     # Generate MLIR
-    module = emit_cobol_mlir(lines)
+    module = emit_cobol_dialect(lines)
 
     # Lower cobol dialect to emitc dialect
     #lower_to_emitc(module)

@@ -1,8 +1,9 @@
        IDENTIFICATION DIVISION.
-       PROGRAM-ID. input.
+       PROGRAM-ID. Declaration.
+
        DATA DIVISION.
        WORKING-STORAGE SECTION.
-       01 n PIC X.
+       01 WS-AGE  PIC 9(2).
        PROCEDURE DIVISION.
-           ACCEPT n
-       STOP RUN.
+       Main-Process.
+           STOP RUN.

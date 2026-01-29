@@ -5,3 +5,5 @@ venv
 /out
 *.egg-info
 test/Output/
+koopa.jar
+get latest emitc

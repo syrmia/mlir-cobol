@@ -123,14 +123,19 @@ def handle_dataDescriptionEntry(elem):
     integer_literal = extractText(elem, "integerLiteral")
     scope = extractText(elem, "levelNumber")
 
-    # X(n), A(n), 9(n)
+    # X(n), A(n), 9(n) or X, 99,...
     pictureString = extractText(elem, "pictureString")
     type = (
         "alpha" if pictureString.startswith("A") else
         "alnum" if pictureString.startswith("X") else
         "num"
     )
-    length = int(pictureString.split("(")[1].split(")")[0])
+    hasDef = pictureString.find('(') != -1
+    if hasDef:
+        length = int(pictureString.split("(")[1].split(")")[0])
+    else:
+        # count chars:
+        length = len(pictureString)
 
     if integer_literal.strip() == "":
         literal = string_literal
@@ -138,10 +143,10 @@ def handle_dataDescriptionEntry(elem):
         literal = int(integer_literal)
 
     return { "PICTURE": {
-        "name" : name,
+        "name"    : name,
         "literal" : literal,
-        "type" : type,
-        "length" : length
+        "type"    : type,
+        "length"  : length
         }
     }
 
@@ -186,10 +191,28 @@ def handle_ifStatement(elem):
             }
         }
 
+
 def handle_moveStatement(elem):
     value = extractText(elem, "literalValue")
-    var_name = extractText(elem, "cobolWord")
+
+    if not value:
+        sendingOprnd = extractText(elem, "sending//identifier")
+        allOprnds = extractText(elem, "identifier")
+        receivingOprnd = allOprnds[len(allOprnds)-len(sendingOprnd):]
+        return {
+            "MOVE": [
+                receivingOprnd,
+                sendingOprnd
+            ]
+        }
+
+    var_name  = extractText(elem, "cobolWord")
+    int_value = extractText(elem, "integerLiteral")
+    str_value = extractText(elem, "alphanumericLiteral")
+    value = int(int_value) if int_value else str_value.strip("\"").strip("\'")
+
     return { "MOVE": [var_name, value] }
+
 
 def handle_programIdParagraph(elem):
     return { "PROGRAM-ID": extractText(elem, "alphanumericConstant") }
