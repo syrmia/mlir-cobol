@@ -124,7 +124,15 @@ class ConvertAndIOp(RewritePattern):
 class ConvertCmpIOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: CmpIOp, rewriter: PatternRewriter):
-        print("Rewriting cmp op")
+        '''
+        cmp_op = EmitC_CmpOp(
+            op.properties["predicate"].value.data,
+            op.operands[0],
+            op.operands[1],
+            IntegerType(1)
+        )
+        rewriter.replace_op(op, cmp_op)
+        '''
 
 
 @dataclass
