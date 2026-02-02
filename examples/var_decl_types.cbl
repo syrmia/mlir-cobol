@@ -1,0 +1,13 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. Declaration.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 FIRST-VAR  PIC 9(2).
+       01 SECOND-VAR PIC S9(2)V9(2).
+       01 THIRD-VAR PIC S9(3)V9(2) VALUE -123.45.
+       01 FOURTH-VAR PIC A(6) VALUE 'ABCDEF'.
+       PROCEDURE DIVISION.
+       Main-Process.
+           DISPLAY "1ST VAR :"FIRST-VAR.
+           STOP RUN.
