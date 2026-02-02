@@ -46,11 +46,13 @@ from xdsl.dialects.emitc import (
     EmitC_ConstantOp,
     EmitC_CmpOp,
     EmitC_IncludeOp,
+    EmitC_LoadOp,
     EmitC_LogicalAndOp,
     EmitC_LogicalOrOp,
     EmitC_VariableOp,
     EmitC_VerbatimOp,
     EmitC_ArrayType,
+    EmitCFloatType, Float16Type, BFloat16Type, Float32Type, Float64Type,
     EmitC_LValueType,
     EmitCIntegerType,
     EmitC_OpaqueType,
@@ -58,7 +60,7 @@ from xdsl.dialects.emitc import (
     EmitC_PointerType
 )
 from xdsl.dialects.func import FuncOp, ReturnOp
-
+from xdsl.passes import ModulePass
 from xdsl.pattern_rewriter import (
     GreedyRewritePatternApplier,
     PatternRewriter,
@@ -68,7 +70,8 @@ from xdsl.pattern_rewriter import (
     attr_type_rewrite_pattern,
     op_type_rewrite_pattern
 )
-from xdsl.passes import ModulePass
+from xdsl.rewriter import InsertPoint
+from xdsl.transforms.convert_scf_to_cf import IfLowering
 
 class CobolBoolTypeConversion(TypeConversionPattern):
     @attr_type_rewrite_pattern
@@ -80,10 +83,21 @@ class CobolDecimalTypeConversion(TypeConversionPattern):
     @attr_type_rewrite_pattern
     def convert_type(self, type: CobolDecimalType) -> EmitCIntegerType:
         length = type.digits.value.data
+        scale = type.scale.value.data
 
-        for width in (8, 16, 32, 64):
-            if 10**length - 1 < 2**width:
-                return EmitCIntegerType(width)
+        #print("len: ", length, " scale: ", scale)
+
+        if scale: # to do: floats
+            digits = length + scale
+            if digits <= 4:
+                return Float16Type
+            if digits <= 7:
+                return Float32Type
+            return Float64Type
+        else:
+            for width in (8, 16, 32, 64):
+                if 10**length - 1 < 2**width:
+                    return EmitCIntegerType(width)
 
         return "error" # ...
 
@@ -124,15 +138,19 @@ class ConvertAndIOp(RewritePattern):
 class ConvertCmpIOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: CmpIOp, rewriter: PatternRewriter):
-        '''
+        load_frst = EmitC_LoadOp(op.operands[0])
+        load_scnd = EmitC_LoadOp(op.operands[1])
+
+        rewriter.insert_op(load_frst, InsertPoint.before(op))
+        rewriter.insert_op(load_scnd, InsertPoint.before(op))
+
         cmp_op = EmitC_CmpOp(
             op.properties["predicate"].value.data,
-            op.operands[0],
-            op.operands[1],
+            load_frst, #op.operands[0],
+            load_scnd, #op.operands[1],
             IntegerType(1)
         )
         rewriter.replace_op(op, cmp_op)
-        '''
 
 
 @dataclass
@@ -308,7 +326,8 @@ class ConvertCobolToEmitcPass(ModulePass):
                     ConvertNotOp(),
                     ConvertOrIOp(),
                     ConvertStopOp(),
-                    ConvertSetOp()
+                    ConvertSetOp(),
+                    IfLowering()
                 ]
             ),
             apply_recursively=True
