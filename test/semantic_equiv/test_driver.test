@@ -1,0 +1,15 @@
+; RUN: %python %S/semantic_equiv/test_driver.py | FileCheck %s
+
+; CHECK: PASS: test_parse_args_defaults
+; CHECK: PASS: test_parse_args_static_only
+; CHECK: PASS: test_parse_args_formal_only
+; CHECK: PASS: test_parse_args_all_options
+; CHECK: PASS: test_report_terminal_equivalent
+; CHECK: PASS: test_report_terminal_counterexample
+; CHECK: PASS: test_report_json_equivalent
+; CHECK: PASS: test_report_json_counterexample
+; CHECK: PASS: test_verdict_logic_z3_equivalent
+; CHECK: PASS: test_verdict_logic_z3_counterexample
+; CHECK: PASS: test_verdict_logic_static_only_high
+; CHECK: PASS: test_verdict_logic_static_only_low
+; CHECK: PASS: test_missing_file_error

@@ -1,0 +1,5 @@
+; REQUIRES: clang, opt
+; RUN: %python %S/semantic_equiv/test_compare_e2e.py | FileCheck %s
+
+; CHECK: PASS: test_equivalent_cpp
+; CHECK: PASS: test_nonequivalent_cpp

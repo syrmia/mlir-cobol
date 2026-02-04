@@ -1,0 +1,20 @@
+; RUN: %python %S/semantic_equiv/test_fingerprint.py | FileCheck %s
+
+; CHECK: PASS: test_type_signature
+; CHECK: PASS: test_op_histogram
+; CHECK: PASS: test_cfg_shape_linear
+; CHECK: PASS: test_cfg_shape_diamond
+; CHECK: PASS: test_cfg_shape_loop
+; CHECK: PASS: test_computation_dag_simple
+; CHECK: PASS: test_computation_dag_chain
+; CHECK: PASS: test_io_sequence_empty
+; CHECK: PASS: test_io_sequence_output
+; CHECK: PASS: test_identical_score
+; CHECK: PASS: test_different_score
+; CHECK: PASS: test_equivalent_commutative
+; CHECK: PASS: test_cosine_similarity
+; CHECK: PASS: test_levenshtein
+; CHECK: PASS: test_module_comparison
+; CHECK: PASS: test_empty_function
+; CHECK: PASS: test_single_ret
+; CHECK: PASS: test_custom_weights

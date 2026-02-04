@@ -32,14 +32,17 @@ project_root = os.path.dirname(config.test_source_root)
 src_dir = os.path.join(project_root, 'src')
 
 # Substitutions
-config.substitutions.append(('%S', config.test_source_root))
-config.substitutions.append(('%p', config.test_source_root))
+# NOTE: %python must come before %p to prevent %p from matching
+# inside %python as a substring.
 config.substitutions.append(('%{project_root}', project_root))
 config.substitutions.append(('%{src}', src_dir))
 
 # Find Python
 python_path = sys.executable
 config.substitutions.append(('%python', python_path))
+
+config.substitutions.append(('%S', config.test_source_root))
+config.substitutions.append(('%p', config.test_source_root))
 
 # cobol-translate command - use the installed command from venv
 # This ensures xdsl and other dependencies are available
@@ -100,3 +103,47 @@ if not mlir_translate_path:
 config.substitutions.append(('%mlir-translate', mlir_translate_path))
 if os.path.isfile(mlir_translate_path):
     config.available_features.add('mlir-translate')
+
+# Find clang: check CLANG_PATH env var, then common paths, then PATH
+clang_path = os.environ.get('CLANG_PATH', '')
+if not clang_path:
+    for path in ['/opt/homebrew/opt/llvm@21/bin',
+                 '/opt/homebrew/opt/llvm@20/bin',
+                 '/opt/homebrew/opt/llvm@19/bin',
+                 '/opt/homebrew/opt/llvm/bin',
+                 '/usr/local/opt/llvm/bin',
+                 '/usr/lib/llvm-19/bin',
+                 '/usr/lib/llvm-18/bin',
+                 '/usr/lib/llvm-17/bin',
+                 '/usr/bin']:
+        candidate = os.path.join(path, 'clang')
+        if os.path.exists(candidate):
+            clang_path = candidate
+            break
+if not clang_path:
+    clang_path = shutil.which('clang') or 'clang'
+config.substitutions.append(('%clang', clang_path))
+if os.path.isfile(clang_path):
+    config.available_features.add('clang')
+
+# Find opt: check OPT_PATH env var, then common paths, then PATH
+opt_path = os.environ.get('OPT_PATH', '')
+if not opt_path:
+    for path in ['/opt/homebrew/opt/llvm@21/bin',
+                 '/opt/homebrew/opt/llvm@20/bin',
+                 '/opt/homebrew/opt/llvm@19/bin',
+                 '/opt/homebrew/opt/llvm/bin',
+                 '/usr/local/opt/llvm/bin',
+                 '/usr/lib/llvm-19/bin',
+                 '/usr/lib/llvm-18/bin',
+                 '/usr/lib/llvm-17/bin',
+                 '/usr/bin']:
+        candidate = os.path.join(path, 'opt')
+        if os.path.exists(candidate):
+            opt_path = candidate
+            break
+if not opt_path:
+    opt_path = shutil.which('opt') or 'opt'
+config.substitutions.append(('%opt', opt_path))
+if os.path.isfile(opt_path):
+    config.available_features.add('opt')

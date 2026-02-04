@@ -9,6 +9,42 @@ This project implements:
 - A frontend compiler that parses COBOL source files and generates MLIR
 - ...
 
+## Semantic Equivalence Checking
+
+The `cobol-equiv` tool verifies that a COBOL program and a reference C++ program produce semantically equivalent behavior. It compiles both to normalized LLVM IR and runs three tiers of analysis.
+
+```mermaid
+flowchart TD
+    A[COBOL source] -->|cobol-translate| B[Generated C++]
+    C[Reference C++]
+
+    B -->|clang + opt| D[Normalized LLVM IR A]
+    C -->|clang + opt| E[Normalized LLVM IR B]
+
+    D --> F[Tier 1: Static Fingerprinting]
+    E --> F
+    D --> G[Tier 1: Structural Comparison]
+    E --> G
+    D --> H[Tier 2: Z3 Formal Verification]
+    E --> H
+
+    F --> I{Verdict}
+    G --> I
+    H --> I
+
+    I -->|EQUIVALENT| J[Exit 0]
+    I -->|NOT_EQUIVALENT| K[Exit 1]
+    I -->|UNKNOWN| L[Exit 2]
+```
+
+```bash
+cobol-equiv generated.cpp reference.cpp              # Run all tiers
+cobol-equiv generated.cpp reference.cpp --level static  # Static only (fast)
+cobol-equiv generated.cpp reference.cpp --level formal  # Z3 only
+cobol-equiv generated.cpp reference.cpp --json          # JSON output
+cobol-equiv --help                                      # Show all options
+```
+
 ## Project Structure
 
 ```
@@ -18,6 +54,14 @@ mlir-cobol/
 │   ├── cobol_translate.py    # Main driver tool
 │   ├── cobol_front.py        # COBOL to MLIR frontend
 │   ├── emitc_lowering.py     # EmitC lowering (in progress)
+│   ├── semantic_equiv/       # Semantic equivalence checker
+│   │   ├── normalize.py      # C++ to normalized LLVM IR
+│   │   ├── ir_parser.py      # LLVM IR text parser
+│   │   ├── fingerprint.py    # Static semantic fingerprinting
+│   │   ├── compare.py        # Structural alpha-equivalence
+│   │   ├── z3_encoder.py     # Z3 symbolic encoding
+│   │   ├── driver.py         # CLI entry point (cobol-equiv)
+│   │   └── report.py         # Output formatting
 │   └── util/
 │       └── xml_handlers.py   # XML file readers
 ├── examples/                 # Example COBOL programs

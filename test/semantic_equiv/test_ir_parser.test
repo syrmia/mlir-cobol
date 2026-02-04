@@ -1,0 +1,16 @@
+; RUN: %python %S/semantic_equiv/test_ir_parser.py | FileCheck %s
+
+; CHECK: PASS: test_empty_module
+; CHECK: PASS: test_module_metadata
+; CHECK: PASS: test_simple_function
+; CHECK: PASS: test_arithmetic
+; CHECK: PASS: test_branch
+; CHECK: PASS: test_call
+; CHECK: PASS: test_phi
+; CHECK: PASS: test_global
+; CHECK: PASS: test_icmp
+; CHECK: PASS: test_select
+; CHECK: PASS: test_cast
+; CHECK: PASS: test_type_properties
+; CHECK: PASS: test_get_function
+; CHECK: PASS: test_store_load

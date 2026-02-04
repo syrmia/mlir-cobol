@@ -1,0 +1,8 @@
+; REQUIRES: clang, opt
+; RUN: %python %S/semantic_equiv/test_normalize.py %S/semantic_equiv/inputs/hello_equiv.cpp | FileCheck %s
+
+; CHECK: PASS: test_find_tool
+; CHECK: PASS: test_find_llvm_tools
+; CHECK: PASS: test_compile_to_llvm_ir
+; CHECK: PASS: test_normalize_ir
+; CHECK: PASS: test_normalize_cpp

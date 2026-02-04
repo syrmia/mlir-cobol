@@ -23,6 +23,7 @@ keywords = ["cobol", "mlir", "xdsl", "compiler", "dialect"]
 requires-python = ">=3.10"
 dependencies = [
     "xdsl @ git+https://github.com/syrmia/xdsl.git",
+    "z3-solver",
 ]
 
 [project.optional-dependencies]
@@ -33,6 +34,7 @@ dev = [
 
 [project.scripts]
 cobol-translate = "cobol_translate:main"
+cobol-equiv = "semantic_equiv.driver:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -40,4 +42,4 @@ py-modules = ["cobol_front", "cobol_dialect", "cobol_translate", "emitc_lowering
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["util*"]
+include = ["util*", "semantic_equiv*"]

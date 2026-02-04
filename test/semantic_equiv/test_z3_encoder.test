@@ -1,0 +1,22 @@
+; RUN: %python %S/semantic_equiv/test_z3_encoder.py | FileCheck %s
+
+; CHECK: PASS: test_encode_simple_add
+; CHECK: PASS: test_encode_icmp_predicates
+; CHECK: PASS: test_encode_select
+; CHECK: PASS: test_encode_phi_node
+; CHECK: PASS: test_encode_conditional_branch
+; CHECK: PASS: test_encode_cast_sext
+; CHECK: PASS: test_encode_cast_trunc
+; CHECK: PASS: test_encode_io_model_output
+; CHECK: PASS: test_encode_io_model_input
+; CHECK: PASS: test_encode_unsupported
+; CHECK: PASS: test_equiv_identical
+; CHECK: PASS: test_equiv_different_ops
+; CHECK: PASS: test_equiv_commutative
+; CHECK: PASS: test_equiv_icmp_swap
+; CHECK: PASS: test_equiv_io_same
+; CHECK: PASS: test_equiv_io_different
+; CHECK: PASS: test_equiv_multiple_outputs
+; CHECK: PASS: test_equiv_return_value
+; CHECK: PASS: test_equiv_simple_loop
+; CHECK: PASS: test_equiv_custom_timeout

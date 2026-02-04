@@ -1,0 +1,14 @@
+; RUN: %python %S/semantic_equiv/test_compare.py | FileCheck %s
+
+; CHECK: PASS: test_identical_modules
+; CHECK: PASS: test_alpha_renamed
+; CHECK: PASS: test_different_labels
+; CHECK: PASS: test_commutative_ops
+; CHECK: PASS: test_predicate_swap
+; CHECK: PASS: test_opcode_mismatch
+; CHECK: PASS: test_missing_function
+; CHECK: PASS: test_different_return_type
+; CHECK: PASS: test_different_constants
+; CHECK: PASS: test_phi_reorder
+; CHECK: PASS: test_call_different_callee
+; CHECK: PASS: test_summary_output
