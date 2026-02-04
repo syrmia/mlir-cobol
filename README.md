@@ -82,9 +82,12 @@ The dialect includes the following operations:
 ### Types
 - `!cobol.string<length>` - Fixed-length string type
 - `!cobol.decimal<digits, scale>` - Decimal type with precision
+- `!cobol.bool` - Boolean type
 
 ### Operations
 - `cobol.accept` - Input (COBOL ACCEPT statement)
+- `cobol.andi` - Logical And operation
+- `cobol.cmpi` - Relational operators: ==, !=, <, <= , >, >=
 - `cobol.constant` - Literal values
 - `cobol.declare` - Variable declaration
 - `cobol.display` - Output (COBOL DISPLAY statement)
@@ -92,6 +95,7 @@ The dialect includes the following operations:
 - `cobol.is` - Is operator (COBOL IS operator, also IS NOT)
 - `cobol.move` - Data movement (COBOL MOVE statement)
 - `cobol.not` - Unary not operator
+- `cobol.ori` - Logical Or operation
 - `cobol.set` - COBOL SET operator
 - `cobol.stop` - Program termination (STOP RUN)
 - ...
@@ -122,15 +126,15 @@ Generated MLIR output:
 ```mlir
 builtin.module {
   "cobol.func"() ({
-    %0 = "cobol.declare"() {sym_name = "OPERAND1"} : () -> !cobol.string<0 : i32>
-    %1 = "cobol.declare"() {sym_name = "OPERAND2"} : () -> !cobol.string<0 : i32>
-    %2 = "cobol.constant"() {value = "10"} : () -> !cobol.string<2 : i32>
-    "cobol.move"(%2, %0) : (!cobol.string<2 : i32>, !cobol.string<0 : i32>) -> ()
-    %3 = "cobol.constant"() {value = "8"} : () -> !cobol.string<1 : i32>
-    "cobol.move"(%3, %1) : (!cobol.string<1 : i32>, !cobol.string<0 : i32>) -> ()
-    %4 = "cobol.is"(%1) <{kind = "numeric", is_positive = "true"}> : (!cobol.string<0 : i32>) -> !cobol.decimal<1 : i32, 1 : i32>
-    %5 = arith.cmpi sgt, %0, %1 : !cobol.string<0 : i32>
-    %6 = arith.andi %4, %5 : !cobol.decimal<1 : i32, 1 : i32>
+    %0 = "cobol.declare"() {value = 0 : i8} : () -> !cobol.decimal<2 : i32, 0 : i32>
+    %1 = "cobol.declare"() {value = 0 : i8} : () -> !cobol.decimal<2 : i32, 0 : i32>
+    %2 = "cobol.constant"() {value = 10 : i8} : () -> !cobol.decimal<2 : i32, 0 : i32>
+    "cobol.move"(%2, %0) : (!cobol.decimal<2 : i32, 0 : i32>, !cobol.decimal<2 : i32, 0 : i32>) -> ()
+    %3 = "cobol.constant"() {value = 8 : i8} : () -> !cobol.decimal<1 : i32, 0 : i32>
+    "cobol.move"(%3, %1) : (!cobol.decimal<1 : i32, 0 : i32>, !cobol.decimal<2 : i32, 0 : i32>) -> ()
+    %4 = "cobol.is"(%1) <{kind = "numeric", is_positive = "true"}> : (!cobol.decimal<2 : i32, 0 : i32>) -> !cobol.bool
+    %5 = "cobol.cmpi"(%0, %1) <{predicate = 4 : i8}> : (!cobol.decimal<2 : i32, 0 : i32>, !cobol.decimal<2 : i32, 0 : i32>) -> !cobol.bool
+    %6 = "cobol.andi"(%4, %5) : (!cobol.bool, !cobol.bool) -> !cobol.bool
     scf.if %6 {
       %7 = "cobol.constant"() {value = "OPERAND2 is smaller than OPERAND1"} : () -> !cobol.string<33 : i32>
       "cobol.display"(%7) : (!cobol.string<33 : i32>) -> ()
@@ -151,7 +155,7 @@ For this project, a locally built version of LLVM/MLIR was used, and the `mlir-t
 
 Once the LLVM/MLIR is built, the translation can be performed using the `mlir-translate` binary:
 ```
-path-to-llvm-project/build/bin/mlir-translate --mlir-to-cpp out/emitc_code.mlir -o out/cpp_code.cpp
+path-to-llvm-project/build/bin/mlir-translate --mlir-to-cpp out/emitc_code.mlir -o out/cpp_code.cpp -declare-variables-at-top
 ```
 
 To run tests that use `mlir-translate`, set:
@@ -163,7 +167,7 @@ export MLIR_TRANSLATE=/some/path/mlir-translate
 ## Run tests
 
 ```bash
-(venv) $ lit test  
+(venv) $ lit test
 -- Testing: 5 tests, 5 workers --
 PASS: mlir-cobol :: hello.test (1 of 5)
 PASS: mlir-cobol :: just_stop.test (2 of 5)
@@ -181,3 +185,8 @@ Total Discovered Tests: 5
 ## License
 
 This project is licensed under the terms specified in the LICENSE file.
+
+## To Do
+
+- [ ] Finish implementing the rewrite pattern for the COBOL `IS` command
+- [ ] Change the IF statement translation flow; instead of `COBOL -> scf -> cf -> C++` flow, implement either `COBOL -> cobol -> emitc -> C++`, or `COBOL -> scf -> emitc -> C++`

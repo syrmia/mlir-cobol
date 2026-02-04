@@ -8,36 +8,32 @@ enabling generation of C code from COBOL programs.
 
 from cobol_dialect import (
     COBOL,
+    CobolBoolType,
     CobolDecimalType,
     CobolStringType,
     AcceptOp,
     AddOp,
+    AndIOp,
     ConstantOp,
+    CmpIOp,
     DeclareOp,
     DisplayOp,
     FunctionOp,
     IsOp,
     MoveOp,
     NotOp,
+    OrIOp,
     SetOp,
     StopRunOp
 )
 from dataclasses import dataclass
-from xdsl.builder import InsertPoint
 from xdsl.context import Context
 from xdsl.dialects.builtin import (
-    AnyTensorType,
-    ArrayAttr,
-    TypedAttribute,
     FunctionType,
-    I8,
-    IntAttr,
     IntegerAttr,
     IntegerType,
-    MemRefType,
     ModuleOp,
     StringAttr,
-    TensorType,
     UnitAttr
 )
 from xdsl.dialects import emitc
@@ -48,10 +44,15 @@ from xdsl.dialects.emitc import (
     EmitC_AssignOp,
     EmitC_CallOpaqueOp,
     EmitC_ConstantOp,
+    EmitC_CmpOp,
     EmitC_IncludeOp,
+    EmitC_LoadOp,
+    EmitC_LogicalAndOp,
+    EmitC_LogicalOrOp,
     EmitC_VariableOp,
     EmitC_VerbatimOp,
     EmitC_ArrayType,
+    EmitCFloatType, Float16Type, BFloat16Type, Float32Type, Float64Type,
     EmitC_LValueType,
     EmitCIntegerType,
     EmitC_OpaqueType,
@@ -59,7 +60,7 @@ from xdsl.dialects.emitc import (
     EmitC_PointerType
 )
 from xdsl.dialects.func import FuncOp, ReturnOp
-
+from xdsl.passes import ModulePass
 from xdsl.pattern_rewriter import (
     GreedyRewritePatternApplier,
     PatternRewriter,
@@ -69,16 +70,34 @@ from xdsl.pattern_rewriter import (
     attr_type_rewrite_pattern,
     op_type_rewrite_pattern
 )
-from xdsl.passes import ModulePass
+from xdsl.rewriter import InsertPoint
+from xdsl.transforms.convert_scf_to_cf import IfLowering
+
+class CobolBoolTypeConversion(TypeConversionPattern):
+    @attr_type_rewrite_pattern
+    def convert_type(self, typ: CobolBoolType) -> EmitCIntegerType:
+        return EmitCIntegerType(1)
+
 
 class CobolDecimalTypeConversion(TypeConversionPattern):
     @attr_type_rewrite_pattern
     def convert_type(self, type: CobolDecimalType) -> EmitCIntegerType:
         length = type.digits.value.data
+        scale = type.scale.value.data
 
-        for width in (8, 16, 32, 64):
-            if 10**length - 1 < 2**width:
-                return EmitCIntegerType(width)
+        #print("len: ", length, " scale: ", scale)
+
+        if scale: # to do: floats
+            digits = length + scale
+            if digits <= 4:
+                return Float16Type
+            if digits <= 7:
+                return Float32Type
+            return Float64Type
+        else:
+            for width in (8, 16, 32, 64):
+                if 10**length - 1 < 2**width:
+                    return EmitCIntegerType(width)
 
         return "error" # ...
 
@@ -101,6 +120,37 @@ class ConvertAcceptOp(RewritePattern):
             operands=args
         )
         rewriter.replace_op(op, verbatim_op)
+
+
+@dataclass
+class ConvertAndIOp(RewritePattern):
+    @op_type_rewrite_pattern
+    def match_and_rewrite(self, op: AndIOp, rewriter: PatternRewriter):
+        and_op = EmitC_LogicalAndOp(
+            op.operands[0],
+            op.operands[1],
+            IntegerType(1)
+        )
+        rewriter.replace_op(op, and_op)
+
+
+@dataclass
+class ConvertCmpIOp(RewritePattern):
+    @op_type_rewrite_pattern
+    def match_and_rewrite(self, op: CmpIOp, rewriter: PatternRewriter):
+        load_frst = EmitC_LoadOp(op.operands[0])
+        load_scnd = EmitC_LoadOp(op.operands[1])
+
+        rewriter.insert_op(load_frst, InsertPoint.before(op))
+        rewriter.insert_op(load_scnd, InsertPoint.before(op))
+
+        cmp_op = EmitC_CmpOp(
+            op.properties["predicate"].value.data,
+            load_frst, #op.operands[0],
+            load_scnd, #op.operands[1],
+            IntegerType(1)
+        )
+        rewriter.replace_op(op, cmp_op)
 
 
 @dataclass
@@ -181,6 +231,21 @@ class ConvertIsOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: IsOp, rewriter: PatternRewriter):
         print("Rewriting is op")
+        # to do
+        '''print(op.properties)
+        kind_type = op.properties["kind"].data
+        is_pos = op.properties["is_positive"].data
+        match kind_type:
+            case "numeric":
+                print("numeric je")
+                print("op type ", op.operands[0].type.value_type)
+                val_t = op.operands[0].type.value_type
+                call_op = CallOp(
+                    "std::is_arithmetic",
+                    [op.operands[0]],
+                    [IntegerType(1)]
+                )
+                rewriter.replace_op(op, call_op)'''
 
 
 @dataclass
@@ -199,6 +264,18 @@ class ConvertNotOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: NotOp, rewriter: PatternRewriter):
         print("Rewriting not op")
+
+
+@dataclass
+class ConvertOrIOp(RewritePattern):
+    @op_type_rewrite_pattern
+    def match_and_rewrite(self, op: OrIOp, rewriter: PatternRewriter):
+        or_op = EmitC_LogicalOrOp(
+            op.operands[0],
+            op.operands[1],
+            IntegerType(1)
+        )
+        rewriter.replace_op(op, or_op)
 
 
 @dataclass
@@ -248,9 +325,12 @@ class ConvertCobolToEmitcPass(ModulePass):
         PatternRewriteWalker(
             GreedyRewritePatternApplier(
                 [
+                    CobolBoolTypeConversion(),
                     CobolDecimalTypeConversion(),
                     CobolStringTypeConversion(),
                     ConvertAcceptOp(),
+                    ConvertAndIOp(),
+                    ConvertCmpIOp(),
                     ConvertConstantOp(),
                     ConvertDeclareOp(),
                     ConvertDisplayOp(),
@@ -259,8 +339,11 @@ class ConvertCobolToEmitcPass(ModulePass):
                     ConvertIsOp(),
                     ConvertMoveOp(),
                     ConvertNotOp(),
+                    ConvertOrIOp(),
                     ConvertStopOp(),
-                    ConvertSetOp()
+                    ConvertSetOp(),
+                    IfLowering(),
+                    #RemoveUnusedOperations()
                 ]
             ),
             apply_recursively=True

@@ -12,29 +12,15 @@ from xdsl.context import Context
 from xdsl.dialects import builtin
 from xdsl.dialects.scf import IfOp, YieldOp
 from xdsl.dialects.builtin import (
-    Block, FunctionType, IntegerAttr, IntegerType, ModuleOp, Region, StringAttr
+    Block, FloatAttr, FunctionType, IntegerAttr, IntegerType, ModuleOp, Region,
+    StringAttr
 )
 from xdsl.ir import OpResult
 from xdsl.printer import Printer
 from cobol_dialect import (
-    COBOL,
-    CobolBoolType,
-    CobolDecimalType,
-    CobolStringType,
-    AcceptOp,
-    AddOp,
-    AndIOp,
-    CmpIOp,
-    ConstantOp,
-    DeclareOp,
-    DisplayOp,
-    FunctionOp,
-    IsOp,
-    MoveOp,
-    NotOp,
-    OrIOp,
-    StopRunOp,
-    SetOp
+    COBOL, CobolBoolType, CobolDecimalType, CobolStringType, AcceptOp, AddOp,
+    AndIOp, CmpIOp, ConstantOp, DeclareOp, DisplayOp, FunctionOp, IsOp, MoveOp,
+    NotOp, OrIOp, StopRunOp, SetOp
 )
 from emitc_lowering import lower_to_emitc
 from util.xml_handlers import process_node
@@ -286,18 +272,36 @@ def processStatements(body, lines, first_run) -> ModuleOp:
             type = data.get("type")
             length = data.get("length")
 
-            if not literal:
-                literal = 0 if type == "num" else ""
+            # for floats:
+            int_part = data.get("int_part")
+            frac_part = data.get("frac_part")
 
-            if type == "num":
+
+            def get_float_type(digits: int) -> int:
+                if digits <= 4:
+                    return 16
+                if digits <= 7:
+                    return 32
+                return 64
+
+            if not literal:
+                literal = 0 if type == "int" or type == "float" else ""
+
+            if type == "int":
                 for width in (8, 16, 32, 64):
                     if 10**length - 1 < 2**width:
                         decl_value = IntegerAttr(literal, width)
                         break
                 res_type = cobol_decimal(length, 0)
-            else:
+            elif type == "alpha" or type == "alnum":
                 decl_value = StringAttr(literal)
                 res_type = cobol_string(length)
+            else:
+                # type is float:
+                total_digits = int_part + frac_part
+                float_type = get_float_type(total_digits)
+                decl_value = FloatAttr(literal, float_type)
+                res_type = cobol_decimal(int_part, frac_part)
 
             declOp = DeclareOp(
                 attributes={ "value": decl_value },
@@ -307,7 +311,7 @@ def processStatements(body, lines, first_run) -> ModuleOp:
 
             if literal:
                 symbol_table[name] = {
-                    "value": literal.strip('\'') if not isinstance(literal, int) else literal,
+                    "value": literal.strip('\'') if not isinstance(literal, int | float) else literal,
                     "result": declOp.result
                 }
             else:
@@ -388,6 +392,8 @@ def main():
     module = emit_cobol_dialect(lines)
 
     print(module)
+
+    # convert 
 
     # xdsl: lowering to emitc dialect
     lower_to_emitc(module)

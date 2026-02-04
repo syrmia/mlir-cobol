@@ -42,6 +42,7 @@ def extractText(elem, tag):
                    for txt in cons.findall(".//t")
                    if txt.text)
 
+
 # because koopa separates letters from nums in variable names...
 def extractVarNames(elem, tag):
     vars = []
@@ -49,6 +50,7 @@ def extractVarNames(elem, tag):
         var_name = "".join(t.text for t in var.findall("t"))
         vars.append(var_name)
     return vars
+
 
 def extractConditionTokens(elem):
     node = elem.find(".//condition")
@@ -117,36 +119,54 @@ def handle_acceptStatement(elem):
     var = extractText(elem, "cobolWord")
     return { "ACCEPT": var }
 
+
 def handle_dataDescriptionEntry(elem):
     name = extractText(elem, "cobolWord")
     string_literal =  extractText(elem, "alphanumericLiteral")
-    integer_literal = extractText(elem, "integerLiteral")
+    numeric_literal = extractText(elem, "numericLiteral")
     scope = extractText(elem, "levelNumber")
+
+    length = 0
+
+    # for floats:
+    int_part = 0
+    frac_part = 0
 
     # X(n), A(n), 9(n) or X, 99,...
     pictureString = extractText(elem, "pictureString")
     type = (
         "alpha" if pictureString.startswith("A") else
         "alnum" if pictureString.startswith("X") else
-        "num"
+        "float" if 'V' in pictureString else
+        "int"
     )
     hasDef = pictureString.find('(') != -1
     if hasDef:
-        length = int(pictureString.split("(")[1].split(")")[0])
+        if type == "int" or type == "alpha" or type == "alnum":
+            length = int(pictureString.split("(")[1].split(")")[0])
+        elif type == "float":
+            int_part = int(pictureString.split("9(")[1].split(")")[0])
+            frac_part  = int(pictureString.split("V9(")[1].split(")")[0])
+            length = 0
     else:
         # count chars:
+        # to do ... float, string, int????
         length = len(pictureString)
 
-    if integer_literal.strip() == "":
+    if numeric_literal.strip() == "":
         literal = string_literal
+    elif type == "float":
+        literal = float(numeric_literal)
     else:
-        literal = int(integer_literal)
+        literal = int(numeric_literal)
 
     return { "PICTURE": {
-        "name"    : name,
-        "literal" : literal,
-        "type"    : type,
-        "length"  : length
+        "name"     : name,
+        "literal"  : literal,
+        "type"     : type,
+        "length"   : length,
+        "int_part" : int_part,
+        "frac_part": frac_part
         }
     }
 
@@ -217,11 +237,13 @@ def handle_moveStatement(elem):
 def handle_programIdParagraph(elem):
     return { "PROGRAM-ID": extractText(elem, "alphanumericConstant") }
 
+
 def handle_setStatement(elem):
     var = extractText(elem, "cobolWord")
     # dodati u zavisnosti od tipa vrednosti.... tag za bool vrednosti je <true>
     val = extractText(elem, "true")
     return { "SET": [var, val] }
+
 
 def handle_stopStatement(elem):
     return { "STOP": "RUN" }
