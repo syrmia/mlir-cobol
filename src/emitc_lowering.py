@@ -231,6 +231,21 @@ class ConvertIsOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: IsOp, rewriter: PatternRewriter):
         print("Rewriting is op")
+        # to do
+        '''print(op.properties)
+        kind_type = op.properties["kind"].data
+        is_pos = op.properties["is_positive"].data
+        match kind_type:
+            case "numeric":
+                print("numeric je")
+                print("op type ", op.operands[0].type.value_type)
+                val_t = op.operands[0].type.value_type
+                call_op = CallOp(
+                    "std::is_arithmetic",
+                    [op.operands[0]],
+                    [IntegerType(1)]
+                )
+                rewriter.replace_op(op, call_op)'''
 
 
 @dataclass
@@ -327,7 +342,8 @@ class ConvertCobolToEmitcPass(ModulePass):
                     ConvertOrIOp(),
                     ConvertStopOp(),
                     ConvertSetOp(),
-                    IfLowering()
+                    IfLowering(),
+                    #RemoveUnusedOperations()
                 ]
             ),
             apply_recursively=True

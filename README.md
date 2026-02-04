@@ -185,3 +185,8 @@ Total Discovered Tests: 5
 ## License
 
 This project is licensed under the terms specified in the LICENSE file.
+
+## To Do
+
+- [ ] Finish implementing the rewrite pattern for the COBOL `IS` command
+- [ ] Change the IF statement translation flow; instead of `COBOL -> scf -> cf -> C++` flow, implement either `COBOL -> cobol -> emitc -> C++`, or `COBOL -> scf -> emitc -> C++`
