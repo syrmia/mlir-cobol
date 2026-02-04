@@ -7,7 +7,8 @@ An experimental MLIR dialect for COBOL built using xDSL, and more.
 This project implements:
 - A custom COBOL dialect for MLIR with operations modeling COBOL semantics
 - A frontend compiler that parses COBOL source files and generates MLIR
-- ...
+- Lowering from the COBOL dialect to EmitC, producing C++ from COBOL
+- A semantic equivalence checker (`cobol-equiv`) that verifies the generated C++ against a reference implementation using static fingerprinting, structural comparison, and Z3 formal verification
 
 ## Semantic Equivalence Checking
 
