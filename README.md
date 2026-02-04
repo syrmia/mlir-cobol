@@ -1,4 +1,4 @@
-# MLIR-COBOL: MLIR Dialect for COBOL (POC)
+# MLIR-COBOL: MLIR Dialect for COBOL and more
 
 An experimental MLIR dialect for COBOL built using xDSL, and more.
 
