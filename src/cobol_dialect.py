@@ -88,6 +88,15 @@ class DisplayOp(IRDLOperation):
     name = "cobol.display"
     args = var_operand_def()
 
+
+@irdl_op_definition
+class IfOp(IRDLOperation):
+    name = "cobol.if"
+    condition = operand_def(IntegerAttr)
+    thenRegion = region_def()
+    elseRegion = region_def()
+
+
 @irdl_op_definition
 class IsOp(IRDLOperation):
     name = "cobol.is"
