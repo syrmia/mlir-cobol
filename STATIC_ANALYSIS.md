@@ -17,14 +17,11 @@ The following 5 traits are analyzed:
 Structural comparison inspects code similarity based on program structure ranging from modules and functions, down to blocks and instructions. It detects similarities even when code is not semantically identical but produces the same result, such as commutative operations or swapped comparison predicates (e.g. a < b is equivalent to b >= a).
 
 ## Z3 Formal Verification
-Encodes LLVM IR functions into Z3 symbolic formulas, models cin/cout as symbolic I/O, unrolls loops to a configurable bound, and asks Z3 to prove equivalence for all inputs or produce a concrete counterexample.
-
-# Z3
 
 Z3, or Z3 theorem prover, is a Satisfiability Modulo Theories (SMT) solver developed by Microsoft. Unlike heuristic-based approaches, Z3 performs formal verification of program equivalence by relying on mathematical reasoning rather than approximations.
 
 It works by checking whether there exists an input that causes the two programs to behave differently.
-In this project, LLVM IR operations are translated into symbolic formulas, where program variables are modeled as a symbolic variables and program operations are modeled as logical functions. Loops are handled via bounded unrolling. Program equivalence is then reduced to checking the satisfiability of a formula expressing whether there exists an input for which the outputs of the two programs differ.
+In this project, LLVM IR operations are translated into symbolic formulas, where program variables are modeled as a symbolic variables and program operations are modeled as logical functions. Input and output operations (such as cin and cout) are abstracted as symbolic input and output events. Loops are handled via bounded unrolling. Program equivalence is reduced to a satisfiability problem that checks whether there exists any input for which the two programs produce different outputs.
 If such input exists, Z3 returns a concrete counterexample. Otherwise, the programs are considered equivalent within the given bounds.
 
 ### Example:
