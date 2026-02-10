@@ -17,7 +17,6 @@ The following 5 traits are analyzed:
 Structural comparison inspects code similarity based on program structure ranging from modules and functions, down to blocks and instructions. It detects similarities even when code is not semantically identical but produces the same result, such as commutative operations or swapped comparison predicates (e.g. a < b is equivalent to b >= a).
 
 ## Z3 Formal Verification
-
 Z3, or Z3 theorem prover, is a Satisfiability Modulo Theories (SMT) solver developed by Microsoft. Unlike heuristic-based approaches, Z3 performs formal verification of program equivalence by relying on mathematical reasoning rather than approximations.
 
 It works by checking whether there exists an input that causes the two programs to behave differently.
