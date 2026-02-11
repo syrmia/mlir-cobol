@@ -195,7 +195,7 @@ class Z3Encoder:
     # -- Instruction encoders -----------------------------------------------
 
     def _encode_arithmetic(self, inst: Instruction) -> None:
-        """Encode add, sub, mul, sdiv, udiv, srem, urem."""
+        """Encode add, sub, mul, sdiv, udiv, srem, urem, fadd, fsub, fmul, fdiv, frem."""
         if len(inst.operands) < 2 or inst.result is None:
             return
         a = self._resolve_operand(inst.operands[0])
@@ -209,6 +209,11 @@ class Z3Encoder:
             "udiv": lambda: z3.UDiv(a, b) if z3.is_bv(a) else a / b,
             "srem": lambda: a % b,
             "urem": lambda: z3.URem(a, b) if z3.is_bv(a) else a % b,
+            "fadd": lambda: a + b,
+            "fsub": lambda: a - b,
+            "fmul": lambda: a * b,
+            "fdiv": lambda: a / b,
+            "frem": lambda: a % b
         }
 
         op_fn = ops.get(inst.opcode)
@@ -687,7 +692,7 @@ class Z3Encoder:
         """Dispatch an instruction to the appropriate encoder."""
         opcode = inst.opcode
 
-        if opcode in ("add", "sub", "mul", "sdiv", "udiv", "srem", "urem"):
+        if opcode in ("add", "sub", "mul", "sdiv", "udiv", "srem", "urem", "fadd", "fsub", "fmul", "fdiv", "frem"):
             self._encode_arithmetic(inst)
         elif opcode in ("and", "or", "xor", "shl", "lshr", "ashr"):
             self._encode_bitwise(inst)
@@ -712,7 +717,7 @@ class Z3Encoder:
             self._encode_memory(inst)
         elif opcode in ("br", "switch", "unreachable"):
             pass  # Control flow handled by CFG algorithm.
-        elif opcode == "getelementptr":
+        elif opcode == "getelementptr": # to do
             if inst.result:
                 self._has_unsupported = True
                 self._unsupported_opcodes.add(opcode)
