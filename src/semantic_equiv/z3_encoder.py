@@ -242,8 +242,8 @@ class Z3Encoder:
         if op_fn:
             self._env[inst.result] = op_fn()
 
-    def _encode_icmp(self, inst: Instruction) -> None:
-        """Encode icmp with all predicates."""
+    def _encode_cmp(self, inst: Instruction) -> None:
+        """Encode icmp and fcmp with all predicates."""
         if len(inst.operands) < 2 or inst.result is None:
             return
         a = self._resolve_operand(inst.operands[0])
@@ -691,8 +691,8 @@ class Z3Encoder:
             self._encode_arithmetic(inst)
         elif opcode in ("and", "or", "xor", "shl", "lshr", "ashr"):
             self._encode_bitwise(inst)
-        elif opcode == "icmp":
-            self._encode_icmp(inst)
+        elif opcode in ("icmp", "fcmp"):
+            self._encode_cmp(inst)
         elif opcode == "select":
             self._encode_select(inst)
         elif opcode in (
