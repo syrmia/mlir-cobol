@@ -44,7 +44,7 @@ def format_terminal(result: AnalysisResult, verbose: bool = False) -> str:
     # Tier 1: Structural Comparison
     if result.structural_result is not None:
         sr = result.structural_result
-        lines.append("--- Tier 1: Structural Comparison ---")
+        lines.append("--- Tier 2: Structural Comparison ---")
         if sr.equivalent:
             lines.append(f"  Result: Equivalent ({len(sr.differences)} differences)")
         else:
@@ -59,7 +59,7 @@ def format_terminal(result: AnalysisResult, verbose: bool = False) -> str:
     # Tier 2: Z3 Formal Verification
     if result.z3_result is not None:
         zr = result.z3_result
-        lines.append("--- Tier 2: Z3 Formal Verification ---")
+        lines.append("--- Tier 3: Z3 Formal Verification ---")
         lines.append(f"  Loop bound:      {zr.loop_bound}")
         lines.append(f"  Bounded proof:   {'Yes' if zr.bounded else 'No'}")
         lines.append(f"  Solver result:   {zr.verdict}")
