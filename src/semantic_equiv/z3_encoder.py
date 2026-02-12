@@ -401,6 +401,12 @@ class Z3Encoder:
         else:
             self._return_expr = z3.If(path_cond, ret_val, self._return_expr)
 
+    def _encode_getelementptr(self, inst: Instruction) -> None:
+        base_ptr = self._resolve_operand(inst.operands[0])
+        offset = self._resolve_operand(inst.operands[1])
+        self._env[inst.result] = base_ptr + offset
+
+
     def _encode_memory(self, inst: Instruction) -> None:
         """Handle alloca, load, store — mark as unsupported."""
         self._has_unsupported = True
@@ -717,11 +723,9 @@ class Z3Encoder:
             self._encode_memory(inst)
         elif opcode in ("br", "switch", "unreachable"):
             pass  # Control flow handled by CFG algorithm.
-        elif opcode == "getelementptr": # to do
-            if inst.result:
-                self._has_unsupported = True
-                self._unsupported_opcodes.add(opcode)
-                self._env[inst.result] = self._fresh_var(inst.result_type)
+        elif opcode == "getelementptr":
+            if inst.result is not None:
+                self._encode_getelementptr(inst)
         else:
             if inst.result:
                 self._has_unsupported = True
