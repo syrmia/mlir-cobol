@@ -45,12 +45,14 @@ from xdsl.dialects.emitc import (
     EmitC_CallOpaqueOp,
     EmitC_ConstantOp,
     EmitC_CmpOp,
+    EmitC_IfOp,
     EmitC_IncludeOp,
     EmitC_LoadOp,
     EmitC_LogicalAndOp,
     EmitC_LogicalOrOp,
     EmitC_VariableOp,
     EmitC_VerbatimOp,
+    EmitC_YieldOp,
     EmitC_ArrayType,
     EmitCFloatType, Float16Type, BFloat16Type, Float32Type, Float64Type,
     EmitC_LValueType,
@@ -60,6 +62,8 @@ from xdsl.dialects.emitc import (
     EmitC_PointerType
 )
 from xdsl.dialects.func import FuncOp, ReturnOp
+from xdsl.dialects.scf import IfOp, YieldOp
+from xdsl.ir import Region, Block
 from xdsl.passes import ModulePass
 from xdsl.pattern_rewriter import (
     GreedyRewritePatternApplier,
@@ -227,6 +231,28 @@ class ConvertFuncOp(RewritePattern):
 
 
 @dataclass
+class ConvertIfOp(RewritePattern):
+    @op_type_rewrite_pattern
+    def match_and_rewrite(self, op: IfOp, rewriter: PatternRewriter):
+        new_then = op.true_region.clone()
+        new_else = op.false_region.clone()
+
+        new_if = EmitC_IfOp(
+            op.cond,
+            new_then,
+            new_else
+        )
+        rewriter.replace_op(op, new_if)
+
+
+@dataclass
+class ConvertYieldOp(RewritePattern):
+    @op_type_rewrite_pattern
+    def match_and_rewrite(self, op: YieldOp, rewriter: PatternRewriter):
+        rewriter.erase_op(op)
+
+
+@dataclass
 class ConvertIsOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: IsOp, rewriter: PatternRewriter):
@@ -336,13 +362,15 @@ class ConvertCobolToEmitcPass(ModulePass):
                     ConvertDisplayOp(),
                     ConvertFuncOp(),
                     ConvertStopOp(),
+                    ConvertIfOp(),
+                    ConvertYieldOp(),
                     ConvertIsOp(),
                     ConvertMoveOp(),
                     ConvertNotOp(),
                     ConvertOrIOp(),
                     ConvertStopOp(),
                     ConvertSetOp(),
-                    IfLowering(),
+                    #IfLowering(), # old: scf to cf, now scf to emitc
                     #RemoveUnusedOperations()
                 ]
             ),
