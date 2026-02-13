@@ -195,7 +195,7 @@ class Z3Encoder:
     # -- Instruction encoders -----------------------------------------------
 
     def _encode_arithmetic(self, inst: Instruction) -> None:
-        """Encode add, sub, mul, sdiv, udiv, srem, urem."""
+        """Encode add, sub, mul, sdiv, udiv, srem, urem, fadd, fsub, fmul, fdiv, frem."""
         if len(inst.operands) < 2 or inst.result is None:
             return
         a = self._resolve_operand(inst.operands[0])
@@ -209,6 +209,11 @@ class Z3Encoder:
             "udiv": lambda: z3.UDiv(a, b) if z3.is_bv(a) else a / b,
             "srem": lambda: a % b,
             "urem": lambda: z3.URem(a, b) if z3.is_bv(a) else a % b,
+            "fadd": lambda: a + b,
+            "fsub": lambda: a - b,
+            "fmul": lambda: a * b,
+            "fdiv": lambda: a / b,
+            "frem": lambda: a % b
         }
 
         op_fn = ops.get(inst.opcode)
@@ -242,8 +247,8 @@ class Z3Encoder:
         if op_fn:
             self._env[inst.result] = op_fn()
 
-    def _encode_icmp(self, inst: Instruction) -> None:
-        """Encode icmp with all predicates."""
+    def _encode_cmp(self, inst: Instruction) -> None:
+        """Encode icmp and fcmp with all predicates."""
         if len(inst.operands) < 2 or inst.result is None:
             return
         a = self._resolve_operand(inst.operands[0])
@@ -395,6 +400,12 @@ class Z3Encoder:
             self._return_expr = ret_val
         else:
             self._return_expr = z3.If(path_cond, ret_val, self._return_expr)
+
+    def _encode_getelementptr(self, inst: Instruction) -> None:
+        base_ptr = self._resolve_operand(inst.operands[0])
+        offset = self._resolve_operand(inst.operands[1])
+        self._env[inst.result] = base_ptr + offset
+
 
     def _encode_memory(self, inst: Instruction) -> None:
         """Handle alloca, load, store — mark as unsupported."""
@@ -687,12 +698,12 @@ class Z3Encoder:
         """Dispatch an instruction to the appropriate encoder."""
         opcode = inst.opcode
 
-        if opcode in ("add", "sub", "mul", "sdiv", "udiv", "srem", "urem"):
+        if opcode in ("add", "sub", "mul", "sdiv", "udiv", "srem", "urem", "fadd", "fsub", "fmul", "fdiv", "frem"):
             self._encode_arithmetic(inst)
         elif opcode in ("and", "or", "xor", "shl", "lshr", "ashr"):
             self._encode_bitwise(inst)
-        elif opcode == "icmp":
-            self._encode_icmp(inst)
+        elif opcode in ("icmp", "fcmp"):
+            self._encode_cmp(inst)
         elif opcode == "select":
             self._encode_select(inst)
         elif opcode in (
@@ -713,10 +724,8 @@ class Z3Encoder:
         elif opcode in ("br", "switch", "unreachable"):
             pass  # Control flow handled by CFG algorithm.
         elif opcode == "getelementptr":
-            if inst.result:
-                self._has_unsupported = True
-                self._unsupported_opcodes.add(opcode)
-                self._env[inst.result] = self._fresh_var(inst.result_type)
+            if inst.result is not None:
+                self._encode_getelementptr(inst)
         else:
             if inst.result:
                 self._has_unsupported = True
