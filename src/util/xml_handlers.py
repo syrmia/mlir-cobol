@@ -153,6 +153,15 @@ def handle_dataDescriptionEntry(elem):
         # to do ... float, string, int????
         length = len(pictureString)
 
+    if pictureString == "":
+        type = "struct"
+        return {
+            "STRUCT": {
+                "name":  name,
+                "level": scope
+            }
+        }
+
     if numeric_literal.strip() == "":
         literal = string_literal
     elif type == "float":
@@ -165,10 +174,12 @@ def handle_dataDescriptionEntry(elem):
         "literal"  : literal,
         "type"     : type,
         "length"   : length,
+        "level"    : scope,
         "int_part" : int_part,
         "frac_part": frac_part
         }
     }
+
 
 def handle_displayStatement(elem):
     '''
@@ -190,6 +201,7 @@ def handle_displayStatement(elem):
         args.append([i, "var"])
 
     return { "DISPLAY": args }
+
 
 def handle_ifStatement(elem):
     condition = extractConditionTokens(elem)

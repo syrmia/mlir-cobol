@@ -19,7 +19,7 @@ from xdsl.ir import OpResult
 from xdsl.printer import Printer
 from cobol_dialect import (
     COBOL, CobolBoolType, CobolDecimalType, CobolStringType, AcceptOp, AddOp,
-    AndIOp, CmpIOp, ConstantOp, DeclareOp, DisplayOp, FunctionOp, IsOp, MoveOp,
+    AndIOp, ClassOp, CmpIOp, ConstantOp, DeclareOp, DisplayOp, FunctionOp, IsOp, MoveOp,
     NotOp, OrIOp, StopRunOp, SetOp
 )
 from emitc_lowering import lower_to_emitc
@@ -168,6 +168,10 @@ symbol_table = {}
 def processStatements(body, lines, first_run) -> ModuleOp:
     start = 1 if first_run else 0
 
+    # for group item declarations
+    # {level, body}
+    struct_regions_stack = []
+
     for i in range(start, len(lines)):
         operation = lines[i]
 
@@ -271,11 +275,11 @@ def processStatements(body, lines, first_run) -> ModuleOp:
             literal = data.get("literal")
             type = data.get("type")
             length = data.get("length")
+            level = int(data.get("level"))
 
             # for floats:
             int_part = data.get("int_part")
             frac_part = data.get("frac_part")
-
 
             def get_float_type(digits: int) -> int:
                 if digits <= 4:
@@ -296,18 +300,30 @@ def processStatements(body, lines, first_run) -> ModuleOp:
             elif type == "alpha" or type == "alnum":
                 decl_value = StringAttr(literal)
                 res_type = cobol_string(length)
-            else:
-                # type is float:
+            elif type == "float":
                 total_digits = int_part + frac_part
                 float_type = get_float_type(total_digits)
                 decl_value = FloatAttr(literal, float_type)
                 res_type = cobol_decimal(int_part, frac_part)
+            else:
+                # unknown type
+                pass
 
             declOp = DeclareOp(
-                attributes={ "value": decl_value },
+                attributes={
+                    "value": decl_value,
+                    "level": IntegerAttr(int(level), 8)
+                    },
                 result_types=[res_type]
             )
-            body.add_op(declOp)
+
+            while struct_regions_stack and int(level) <= int(struct_regions_stack[-1][0]):
+                struct_regions_stack.pop()
+
+            if struct_regions_stack:
+                struct_regions_stack[-1][1].block.add_op(declOp)
+            else:
+                body.add_op(declOp)
 
             if literal:
                 symbol_table[name] = {
@@ -319,6 +335,34 @@ def processStatements(body, lines, first_run) -> ModuleOp:
                     "value" : None,
                     "result" : declOp.result
                 }
+            continue
+
+        elif operation.get("STRUCT"):
+            op_data = operation.get("STRUCT")
+            name = op_data.get("name")
+            level = op_data.get("level")
+
+            struct_body = Region(Block())
+
+            classOp = ClassOp(
+                attributes={ "class_name": StringAttr(name) },
+                regions={ struct_body },
+                result_types=[cobol_decimal(0, 0)]
+            )
+
+            while struct_regions_stack and int(level) <= int(struct_regions_stack[-1][0]):
+                struct_regions_stack.pop()
+
+            if struct_regions_stack:
+                struct_regions_stack[-1][1].block.add_op(classOp)
+            else:
+                body.add_op(classOp)
+
+            symbol_table[name] = {
+                "value" : None,
+                "result" : classOp.result
+            }
+            struct_regions_stack.append([op_data.get("level"), struct_body])
             continue
 
         elif operation.get("STOP"):
@@ -352,8 +396,6 @@ def emit_cobol_dialect(lines):
     processStatements(body, lines, True)
 
     return module
-
-
 
 
 # write partially lowered mlir to file
@@ -393,7 +435,7 @@ def main():
 
     print(module)
 
-    # convert 
+    # convert
 
     # xdsl: lowering to emitc dialect
     lower_to_emitc(module)
