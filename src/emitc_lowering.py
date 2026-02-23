@@ -29,9 +29,9 @@ from cobol_dialect import (
 from dataclasses import dataclass
 from xdsl.context import Context
 from xdsl.dialects.builtin import (
+    AnyFloat, Float16Type, Float32Type, Float64Type,
     FunctionType,
-    IntegerAttr,
-    IntegerType,
+    IntegerAttr, IntegerType,
     ModuleOp,
     StringAttr,
     UnitAttr
@@ -54,7 +54,6 @@ from xdsl.dialects.emitc import (
     EmitC_VerbatimOp,
     EmitC_YieldOp,
     EmitC_ArrayType,
-    EmitCFloatType, Float16Type, BFloat16Type, Float32Type, Float64Type,
     EmitC_LValueType,
     EmitCIntegerType,
     EmitC_OpaqueType,
@@ -89,15 +88,16 @@ class CobolDecimalTypeConversion(TypeConversionPattern):
         length = type.digits.value.data
         scale = type.scale.value.data
 
-        #print("len: ", length, " scale: ", scale)
+        print("len: ", length, " scale: ", scale)
 
-        if scale: # to do: floats
+        if scale:
             digits = length + scale
-            if digits <= 4:
-                return Float16Type
+            # cpp emitter translates f16 to _Float16
+            #if digits <= 4:
+            #    return Float16Type()
             if digits <= 7:
-                return Float32Type
-            return Float64Type
+                return Float32Type()
+            return Float64Type()
         else:
             for width in (8, 16, 32, 64):
                 if 10**length - 1 < 2**width:
@@ -150,8 +150,8 @@ class ConvertCmpIOp(RewritePattern):
 
         cmp_op = EmitC_CmpOp(
             op.properties["predicate"].value.data,
-            load_frst, #op.operands[0],
-            load_scnd, #op.operands[1],
+            load_frst,
+            load_scnd,
             IntegerType(1)
         )
         rewriter.replace_op(op, cmp_op)
@@ -182,6 +182,8 @@ class ConvertDeclareOp(RewritePattern):
         sym_value = op.attributes["value"]
         op_res_type = op.result.type
 
+        print("oprestype: ", op_res_type)
+
         if isinstance(op_res_type, IntegerType):
             var_op = EmitC_VariableOp(
                 EmitC_OpaqueAttr(StringAttr(str(sym_value.value.data))),
@@ -189,7 +191,14 @@ class ConvertDeclareOp(RewritePattern):
             )
             rewriter.replace_op(op, var_op)
 
-        elif isinstance(op_res_type, EmitC_LValueType | EmitC_ArrayType):
+        elif isinstance(op_res_type, AnyFloat):
+            var_op = EmitC_VariableOp(
+                EmitC_OpaqueAttr(StringAttr(str(sym_value.value.data))),
+                EmitC_LValueType(op_res_type)
+            )
+            rewriter.replace_op(op, var_op)
+
+        elif isinstance(op_res_type, EmitC_LValueType):
             fixed_string = sym_value.data.strip("\"").strip("\'")
             var_op  = EmitC_VariableOp(
                 EmitC_OpaqueAttr(StringAttr("\"" + fixed_string + "\"")),

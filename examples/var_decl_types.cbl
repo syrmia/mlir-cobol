@@ -10,4 +10,7 @@
        PROCEDURE DIVISION.
        Main-Process.
            DISPLAY "1ST VAR :"FIRST-VAR.
+           DISPLAY "2ND VAR :"SECOND-VAR.
+           DISPLAY "3RD VAR :"THIRD-VAR.
+           DISPLAY "4TH VAR :"FOURTH-VAR.
            STOP RUN.
