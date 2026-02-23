@@ -88,8 +88,6 @@ class CobolDecimalTypeConversion(TypeConversionPattern):
         length = type.digits.value.data
         scale = type.scale.value.data
 
-        print("len: ", length, " scale: ", scale)
-
         if scale:
             digits = length + scale
             # cpp emitter translates f16 to _Float16
@@ -182,7 +180,7 @@ class ConvertDeclareOp(RewritePattern):
         sym_value = op.attributes["value"]
         op_res_type = op.result.type
 
-        print("oprestype: ", op_res_type)
+        #print("oprestype: ", op_res_type)
 
         if isinstance(op_res_type, IntegerType):
             var_op = EmitC_VariableOp(

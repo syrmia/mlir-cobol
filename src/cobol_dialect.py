@@ -8,7 +8,6 @@ from xdsl.irdl import (
     irdl_op_definition,
     IRDLOperation,
     operand_def,
-    #ParameterDef,
     ParametrizedAttribute,
     prop_def,
     region_def,
@@ -64,6 +63,13 @@ class AndIOp(IRDLOperation):
     result = result_def()
 
 @irdl_op_definition
+class ClassOp(IRDLOperation):
+    name = "cobol.class"
+    class_name = prop_def(StringAttr)
+    body = region_def()
+    result = result_def()
+
+@irdl_op_definition
 class CmpIOp(IRDLOperation):
     name = "cobol.cmpi"
     predicate = prop_def(IntegerAttr)
@@ -81,6 +87,7 @@ class ConstantOp(IRDLOperation):
 class DeclareOp(IRDLOperation):
     name     = "cobol.declare"
     value = prop_def(IntegerAttr | StringAttr)
+    level = prop_def(StringAttr)
     result   = result_def()
 
 @irdl_op_definition
@@ -88,14 +95,12 @@ class DisplayOp(IRDLOperation):
     name = "cobol.display"
     args = var_operand_def()
 
-
 @irdl_op_definition
 class IfOp(IRDLOperation):
     name = "cobol.if"
     condition = operand_def(IntegerAttr)
-    thenRegion = region_def()
-    elseRegion = region_def()
-
+    then_region = region_def()
+    else_region = region_def()
 
 @irdl_op_definition
 class IsOp(IRDLOperation):
