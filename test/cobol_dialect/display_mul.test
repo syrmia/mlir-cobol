@@ -4,8 +4,8 @@
 
 # CHECK: builtin.module {
 # CHECK-NEXT:   "cobol.func"() ({
-# CHECK-NEXT:     %0 = "cobol.declare"() {value = "'Duke'"} : () -> !cobol.string<20 : i32>
-# CHECK-NEXT:     %1 = "cobol.declare"() {value = 32 : i8} : () -> !cobol.decimal<2 : i32, 0 : i32>
+# CHECK-NEXT:     %0 = "cobol.declare"() {value = "'Duke'", level = 1 : i8} : () -> !cobol.string<20 : i32>
+# CHECK-NEXT:     %1 = "cobol.declare"() {value = 32 : i8, level = 1 : i8} : () -> !cobol.decimal<2 : i32, 0 : i32>
 # CHECK-NEXT:     %2 = "cobol.constant"() {value = "Name: "} : () -> !cobol.string<6 : i32>
 # CHECK-NEXT:     "cobol.display"(%2, %0) : (!cobol.string<6 : i32>, !cobol.string<20 : i32>) -> ()
 # CHECK-NEXT:     %3 = "cobol.constant"() {value = "Age: "} : () -> !cobol.string<5 : i32>
