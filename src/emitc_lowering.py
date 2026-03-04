@@ -26,12 +26,12 @@ from cobol_dialect import (
     OrIOp,
     SetOp,
     StopRunOp,
+    StructOp
 )
 from dataclasses import dataclass
 from xdsl.context import Context
 from xdsl.dialects.builtin import (
     AnyFloat,
-    Float16Type,
     Float32Type,
     Float64Type,
     FunctionType,
@@ -39,15 +39,15 @@ from xdsl.dialects.builtin import (
     IntegerType,
     ModuleOp,
     StringAttr,
+    SymbolRefAttr,
     UnitAttr,
 )
 from xdsl.dialects import emitc
 from xdsl.dialects.emitc import (
     EmitC,
     EmitC_AddOp,
-    EmitC_ApplyOp,
     EmitC_AssignOp,
-    EmitC_CallOpaqueOp,
+    EmitC_ClassOp,
     EmitC_ConstantOp,
     EmitC_CmpOp,
     EmitC_IfOp,
@@ -57,8 +57,6 @@ from xdsl.dialects.emitc import (
     EmitC_LogicalOrOp,
     EmitC_VariableOp,
     EmitC_VerbatimOp,
-    EmitC_YieldOp,
-    EmitC_ArrayType,
     EmitC_LValueType,
     EmitCIntegerType,
     EmitC_OpaqueType,
@@ -67,7 +65,6 @@ from xdsl.dialects.emitc import (
 )
 from xdsl.dialects.func import FuncOp, ReturnOp
 from xdsl.dialects.scf import IfOp, YieldOp
-from xdsl.ir import Region, Block
 from xdsl.passes import ModulePass
 from xdsl.pattern_rewriter import (
     GreedyRewritePatternApplier,
@@ -79,7 +76,6 @@ from xdsl.pattern_rewriter import (
     op_type_rewrite_pattern,
 )
 from xdsl.rewriter import InsertPoint
-from xdsl.transforms.convert_scf_to_cf import IfLowering
 
 
 class CobolBoolTypeConversion(TypeConversionPattern):
@@ -176,29 +172,50 @@ class ConvertDeclareOp(RewritePattern):
         sym_value = op.attributes["value"]
         op_res_type = op.result.type
 
-        # print("oprestype: ", op_res_type)
+        #print("sym_name ", sym_value)
+        #print("op res type ", op_res_type)
 
         if isinstance(op_res_type, IntegerType):
+            #print("Integer je")
             var_op = EmitC_VariableOp(
                 EmitC_OpaqueAttr(StringAttr(str(sym_value.value.data))),
                 EmitC_LValueType(op_res_type),
             )
+            #print(var_op)
             rewriter.replace_op(op, var_op)
 
         elif isinstance(op_res_type, AnyFloat):
+            #print("Float je")
             var_op = EmitC_VariableOp(
                 EmitC_OpaqueAttr(StringAttr(str(sym_value.value.data))),
                 EmitC_LValueType(op_res_type),
             )
+            #print(var_op)
             rewriter.replace_op(op, var_op)
 
         elif isinstance(op_res_type, EmitC_LValueType):
-            fixed_string = sym_value.data.strip('"').strip("'")
-            var_op = EmitC_VariableOp(
-                EmitC_OpaqueAttr(StringAttr('"' + fixed_string + '"')), op_res_type
-            )
-            rewriter.replace_op(op, var_op)
+            # either std::string or custom user type (struct/class)
+            opaque_type = op_res_type.value_type.value.data
 
+            if opaque_type == "std::string":
+                #print("String je")
+                fixed_string = sym_value.data.strip('"').strip("'")
+                var_op = EmitC_VariableOp(
+                    EmitC_OpaqueAttr(
+                        StringAttr('"' + fixed_string + '"')),
+                        op_res_type
+                )
+                #print(var_op)
+                rewriter.replace_op(op, var_op)
+            else:
+                # custom type (struct)
+                #print("Struct je")
+                var_op = EmitC_VariableOp(
+                    EmitC_OpaqueAttr(StringAttr(opaque_type)),
+                    op_res_type
+                )
+                #print(var_op)
+                rewriter.replace_op(op, var_op)
         else:
             print("Type still not supported: ", op_res_type)
 
@@ -209,12 +226,15 @@ class ConvertDeclareOp(RewritePattern):
 class ConvertDisplayOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: DisplayOp, rewriter: PatternRewriter):
+        #print("rewriting DISPLAY ")
         args = op.args
+        #print("display args: ", args)
         placeholders = " << ".join("{}" for a in args)
         string_arg = "std::cout << " + placeholders + ";"
         verbatim_op = EmitC_VerbatimOp(
             value=StringAttr(string_arg), operands=list(args)
         )
+        #print(verbatim_op)
         rewriter.replace_op(op, verbatim_op)
 
 
@@ -312,6 +332,30 @@ class ConvertStopOp(RewritePattern):
         return
 
 
+@dataclass
+class ConvertStructOp(RewritePattern):
+    @op_type_rewrite_pattern
+    def match_and_rewrite(self, op: StructOp, rewriter: PatternRewriter):
+        struct_name = StringAttr(op.attributes["struct_name"].data.replace("-", "_"))
+
+        struct_name_ref = SymbolRefAttr(struct_name)
+        new_struct_body = op.body.clone()
+        #res_type = EmitC_LValueType(EmitC_OpaqueType(struct_name))
+
+        # class definition
+        class_op = EmitC_ClassOp(
+            struct_name_ref,
+            new_struct_body
+        )
+        rewriter.insert_op(class_op, InsertPoint.before(rewriter.current_operation))
+
+        #var_op = EmitC_VariableOp(
+        #    EmitC_OpaqueAttr(struct_name),
+        #    res_type
+        #)
+        #rewriter.replace_op(op, var_op)
+
+
 class ConvertCobolToEmitcPass(ModulePass):
     """
     Converts cobol dialect to emitc dialect.
@@ -369,7 +413,7 @@ class ConvertCobolToEmitcPass(ModulePass):
                     ConvertOrIOp(),
                     ConvertStopOp(),
                     ConvertSetOp(),
-                    # IfLowering(), # old: scf to cf, now scf to emitc
+                    ConvertStructOp(),
                     # RemoveUnusedOperations()
                 ]
             ),
