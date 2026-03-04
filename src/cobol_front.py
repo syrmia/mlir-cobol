@@ -217,7 +217,7 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             body.add_op(op)
             continue
 
-        if operation.get("ADD"):
+        elif operation.get("ADD"):
             vars = operation.get("ADD")
             lhs = symbol_table[vars[0]]["result"]
             rhs = symbol_table[vars[1]]["result"]
@@ -229,7 +229,7 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             body.add_op(op)
             continue
 
-        if operation.get("DISPLAY"):
+        elif operation.get("DISPLAY"):
             arg_list = operation.get("DISPLAY")
             ops = []
             for arg in arg_list:
@@ -409,6 +409,19 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
 
         elif operation.get("STOP"):
             body.add_op(StopRunOp())
+            continue
+
+
+        elif operation.get("SUB"):
+            vars = operation.get("SUB")
+            lhs = symbol_table[vars[1]]["result"]
+            rhs = symbol_table[vars[0]]["result"]
+            res_type = symbol_table[vars[1]]["result"].type
+            sub_op = SubOp(
+                operands={ lhs, rhs },
+                result_types=[ res_type ]
+            )
+            body.add_op(sub_op)
             continue
 
         else:
