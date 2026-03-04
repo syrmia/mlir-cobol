@@ -257,6 +257,13 @@ def handle_stopStatement(elem):
     return {"STOP": "RUN"}
 
 
+def handle_subtractStatement(elem):
+    # to do: literals
+    idents = extractVarNames(elem, "identifier")
+    # first one: arg, second one: arg & res
+    return {"SUB": idents}
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  Handlers dictionary
 # ─────────────────────────────────────────────────────────────────────────────
@@ -270,4 +277,5 @@ Handlers = {
     "programIdParagraph": handle_programIdParagraph,
     "setStatement": handle_setStatement,
     "stopStatement": handle_stopStatement,
+    "subtractStatement": handle_subtractStatement
 }
