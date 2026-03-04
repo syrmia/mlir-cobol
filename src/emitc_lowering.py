@@ -137,13 +137,16 @@ class ConvertAddOp(RewritePattern):
         rewriter.insert_op(load_frst, InsertPoint.before(op))
         rewriter.insert_op(load_scnd, InsertPoint.before(op))
 
+        # da koristim address of operaciju ?
+
         add_op = EmitC_AddOp(
-            #oprnds[0].value_type,
-            #oprnds[1].value_type,
-            load_frst,
-            load_scnd,
+            #op.operands[0],#.value_type,
+            #op.operands[0],#.value_type,
+            load_frst.result,
+            load_scnd.result,
             op.result.type,
         )
+        #rewriter.replace_all_uses_with(op.operands[1], add_op.result)
         rewriter.replace_op(op, add_op)
 
 
@@ -375,6 +378,13 @@ class ConvertStructOp(RewritePattern):
         rewriter.replace_op(op, var_op)
 
 
+@dataclass
+class ConvertSubOp(RewritePattern):
+    @op_type_rewrite_pattern
+    def match_and_rewrite(self, op: SubOp, rewriter: PatternRewriter):
+        pass
+
+
 class ConvertCobolToEmitcPass(ModulePass):
     """
     Converts cobol dialect to emitc dialect.
@@ -434,6 +444,7 @@ class ConvertCobolToEmitcPass(ModulePass):
                     ConvertStopOp(),
                     ConvertSetOp(),
                     ConvertStructOp(),
+                    ConvertSubOp(),
                     # RemoveUnusedOperations()
                 ]
             ),
