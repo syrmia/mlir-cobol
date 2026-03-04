@@ -1,0 +1,6 @@
+# Test: Nested IF/ELSE inside IF (crashes with IndexError in process_cond)
+# REQUIRES: koopa
+# XFAIL: *
+# RUN: %cobol-translate %S/inputs/nested_if.cbl 2>&1 | FileCheck %s
+
+# CHECK: scf.if

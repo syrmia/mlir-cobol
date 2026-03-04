@@ -1,0 +1,10 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. SUBTRACTSTMT.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+           77 A PIC 99 VALUE 30.
+           77 B PIC 99 VALUE 10.
+       PROCEDURE DIVISION.
+           SUBTRACT B FROM A.
+           DISPLAY 'A: ' A.
+           STOP RUN.

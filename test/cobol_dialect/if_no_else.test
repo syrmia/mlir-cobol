@@ -1,0 +1,6 @@
+# Test: IF without ELSE branch (crashes with IndexError in process_cond)
+# REQUIRES: koopa
+# XFAIL: *
+# RUN: %cobol-translate %S/inputs/if_no_else.cbl 2>&1 | FileCheck %s
+
+# CHECK: scf.if
