@@ -44,6 +44,7 @@ from cobol_dialect import (
     OrIOp,
     StopRunOp,
     SetOp,
+    SubOp,
 )
 from emitc_lowering import lower_to_emitc
 from util.xml_handlers import process_node
@@ -213,6 +214,18 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             var = operation.get("ACCEPT")
             target = symbol_table[var]["result"]
             op = AcceptOp(operands=[target])
+            body.add_op(op)
+            continue
+
+        if operation.get("ADD"):
+            vars = operation.get("ADD")
+            lhs = symbol_table[vars[0]]["result"]
+            rhs = symbol_table[vars[1]]["result"]
+            res_type = symbol_table[vars[1]]["result"].type
+            op = AddOp(
+                operands={ lhs, rhs },
+                result_types=[ res_type ]
+            )
             body.add_op(op)
             continue
 
