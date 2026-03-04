@@ -1,0 +1,6 @@
+# Test: SUBTRACT B FROM A (silently dropped, no handler)
+# REQUIRES: koopa
+# XFAIL: *
+# RUN: %cobol-translate %S/inputs/subtract_stmt.cbl 2>&1 | FileCheck %s
+
+# CHECK: cobol.sub

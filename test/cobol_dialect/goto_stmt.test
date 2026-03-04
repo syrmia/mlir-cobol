@@ -1,0 +1,6 @@
+# Test: GO TO label (silently dropped, paragraphs inlined sequentially)
+# REQUIRES: koopa
+# XFAIL: *
+# RUN: %cobol-translate %S/inputs/goto_stmt.cbl 2>&1 | FileCheck %s
+
+# CHECK: cf.br

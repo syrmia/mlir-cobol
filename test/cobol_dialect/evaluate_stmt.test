@@ -1,0 +1,6 @@
+# Test: EVALUATE/WHEN (silently dropped, all WHEN bodies inlined sequentially)
+# REQUIRES: koopa
+# XFAIL: *
+# RUN: %cobol-translate %S/inputs/evaluate_stmt.cbl 2>&1 | FileCheck %s
+
+# CHECK: scf.if

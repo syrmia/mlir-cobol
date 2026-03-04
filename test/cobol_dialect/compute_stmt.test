@@ -1,0 +1,6 @@
+# Test: COMPUTE RESULT = A + B (silently dropped, no handler)
+# REQUIRES: koopa
+# XFAIL: *
+# RUN: %cobol-translate %S/inputs/compute_stmt.cbl 2>&1 | FileCheck %s
+
+# CHECK: cobol.add

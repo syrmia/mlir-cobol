@@ -1,0 +1,14 @@
+# Test: DISPLAY with multiple literals and variables of different types
+# REQUIRES: koopa
+# RUN: %cobol-translate %S/inputs/display_mixed_args.cbl 2>&1 | FileCheck %s
+
+# CHECK: builtin.module {
+# CHECK-NEXT:   "cobol.func"() ({
+# CHECK-NEXT:     %0 = "cobol.declare"() {value = "'Alice'", level = 1 : i8} : () -> !cobol.string<10 : i32>
+# CHECK-NEXT:     %1 = "cobol.declare"() {value = 30 : i16, level = 1 : i8} : () -> !cobol.decimal<3 : i32, 0 : i32>
+# CHECK-NEXT:     %2 = "cobol.constant"() {value = "Name: "} : () -> !cobol.string<6 : i32>
+# CHECK-NEXT:     %3 = "cobol.constant"() {value = " Age: "} : () -> !cobol.string<6 : i32>
+# CHECK-NEXT:     "cobol.display"(%2, %3, %0, %1) : (!cobol.string<6 : i32>, !cobol.string<6 : i32>, !cobol.string<10 : i32>, !cobol.decimal<3 : i32, 0 : i32>) -> ()
+# CHECK-NEXT:     "cobol.stop"() : () -> ()
+# CHECK-NEXT:   }) {sym_name = "DISPLAYMIX", function_type = () -> ()} : () -> ()
+# CHECK-NEXT: }

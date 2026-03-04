@@ -1,0 +1,21 @@
+# Test: Variable declarations with signed decimal, float, and alphabetic types
+# REQUIRES: koopa
+# RUN: %cobol-translate %S/inputs/var_decl_types.cbl 2>&1 | FileCheck %s
+
+# CHECK: builtin.module {
+# CHECK-NEXT:   "cobol.func"() ({
+# CHECK-NEXT:     %0 = "cobol.declare"() {value = 0 : i8, level = 1 : i8} : () -> !cobol.decimal<2 : i32, 0 : i32>
+# CHECK-NEXT:     %1 = "cobol.declare"() {value = 0.000000e+00 : f16, level = 1 : i8} : () -> !cobol.decimal<2 : i32, 2 : i32>
+# CHECK-NEXT:     %2 = "cobol.declare"() {value = -1.234500e+02 : f32, level = 1 : i8} : () -> !cobol.decimal<3 : i32, 2 : i32>
+# CHECK-NEXT:     %3 = "cobol.declare"() {value = "'ABCDEF'", level = 1 : i8} : () -> !cobol.string<6 : i32>
+# CHECK-NEXT:     %4 = "cobol.constant"() {value = "1ST VAR :"} : () -> !cobol.string<9 : i32>
+# CHECK-NEXT:     "cobol.display"(%4, %0) : (!cobol.string<9 : i32>, !cobol.decimal<2 : i32, 0 : i32>) -> ()
+# CHECK-NEXT:     %5 = "cobol.constant"() {value = "2ND VAR :"} : () -> !cobol.string<9 : i32>
+# CHECK-NEXT:     "cobol.display"(%5, %1) : (!cobol.string<9 : i32>, !cobol.decimal<2 : i32, 2 : i32>) -> ()
+# CHECK-NEXT:     %6 = "cobol.constant"() {value = "3RD VAR :"} : () -> !cobol.string<9 : i32>
+# CHECK-NEXT:     "cobol.display"(%6, %2) : (!cobol.string<9 : i32>, !cobol.decimal<3 : i32, 2 : i32>) -> ()
+# CHECK-NEXT:     %7 = "cobol.constant"() {value = "4TH VAR :"} : () -> !cobol.string<9 : i32>
+# CHECK-NEXT:     "cobol.display"(%7, %3) : (!cobol.string<9 : i32>, !cobol.string<6 : i32>) -> ()
+# CHECK-NEXT:     "cobol.stop"() : () -> ()
+# CHECK-NEXT:   }) {sym_name = "Declaration", function_type = () -> ()} : () -> ()
+# CHECK-NEXT: }

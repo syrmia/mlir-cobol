@@ -4,7 +4,7 @@
 
 # CHECK: builtin.module {
 # CHECK-NEXT:   "cobol.func"() ({
-# CHECK-NEXT:     %0 = "cobol.declare"() {value = ""} : () -> !cobol.string<1 : i32>
+# CHECK-NEXT:     %0 = "cobol.declare"() {value = "", level = 1 : i8} : () -> !cobol.string<1 : i32>
 # CHECK-NEXT:     "cobol.accept"(%0) : (!cobol.string<1 : i32>) -> ()
 # CHECK-NEXT:     "cobol.stop"() : () -> ()
 # CHECK-NEXT:   }) {sym_name = "input", function_type = () -> ()} : () -> ()

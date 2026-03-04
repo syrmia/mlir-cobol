@@ -1,0 +1,6 @@
+# Test: ADD A TO B (silently dropped, no handler)
+# REQUIRES: koopa
+# XFAIL: *
+# RUN: %cobol-translate %S/inputs/add_stmt.cbl 2>&1 | FileCheck %s
+
+# CHECK: cobol.add

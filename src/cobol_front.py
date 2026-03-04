@@ -12,15 +12,38 @@ from xdsl.context import Context
 from xdsl.dialects import builtin
 from xdsl.dialects.scf import IfOp, YieldOp
 from xdsl.dialects.builtin import (
-    Block, FloatAttr, FunctionType, IntegerAttr, IntegerType, ModuleOp, Region,
-    StringAttr
+    Block,
+    FloatAttr,
+    FunctionType,
+    IntegerAttr,
+    IntegerType,
+    ModuleOp,
+    Region,
+    StringAttr,
 )
 from xdsl.ir import OpResult
 from xdsl.printer import Printer
 from cobol_dialect import (
-    COBOL, CobolBoolType, CobolDecimalType, CobolStringType, AcceptOp, AddOp,
-    AndIOp, CmpIOp, ConstantOp, DeclareOp, DisplayOp, FunctionOp, IsOp, MoveOp,
-    NotOp, OrIOp, StopRunOp, SetOp
+    COBOL,
+    CobolBoolType,
+    CobolDecimalType,
+    CobolStringType,
+    CobolRecordType,
+    AcceptOp,
+    AddOp,
+    AndIOp,
+    StructOp,
+    CmpIOp,
+    ConstantOp,
+    DeclareOp,
+    DisplayOp,
+    FunctionOp,
+    IsOp,
+    MoveOp,
+    NotOp,
+    OrIOp,
+    StopRunOp,
+    SetOp,
 )
 from emitc_lowering import lower_to_emitc
 from util.xml_handlers import process_node
@@ -28,9 +51,22 @@ from util.xml_handlers import process_node
 
 # MLIR generation helpers.
 I32 = IntegerType(32)
-def cobol_bool(): return CobolBoolType()
-def cobol_string(n: int): return CobolStringType(IntegerAttr(n, I32))
-def cobol_decimal(d: int, s: int=0): return CobolDecimalType(IntegerAttr(d, I32), IntegerAttr(s, I32))
+
+
+def cobol_bool():
+    return CobolBoolType()
+
+
+def cobol_string(n: int):
+    return CobolStringType(IntegerAttr(n, I32))
+
+
+def cobol_decimal(d: int, s: int = 0):
+    return CobolDecimalType(IntegerAttr(d, I32), IntegerAttr(s, I32))
+
+
+def cobol_record(name: str):
+    return CobolRecordType(StringAttr(name))
 
 
 def run_koopa(src):
@@ -42,13 +78,17 @@ def run_koopa(src):
     # Ensure build_xml directory exists
     os.makedirs("build_xml", exist_ok=True)
 
-    subprocess.run([
-        "java", "-cp",
-        koopa_jar,
-        "koopa.app.cli.ToXml",
-        "--free-format", src,
-        "test/Output/build_xml/" + os.path.splitext(src.name)[0] + ".xml"
-    ])
+    subprocess.run(
+        [
+            "java",
+            "-cp",
+            koopa_jar,
+            "koopa.app.cli.ToXml",
+            "--free-format",
+            src,
+            "test/Output/build_xml/" + os.path.splitext(src.name)[0] + ".xml",
+        ]
+    )
 
 
 def read_xml(src):
@@ -79,23 +119,20 @@ def process_cond(body, cond):
 
     if cond[0] == "(":
         end = find_matching_paren(0, cond)
-        res = process_cond(body, cond[1 : end])
+        res = process_cond(body, cond[1:end])
         if end == len(cond) - 1:
             return res
         else:
             cond[end] = res
-            return process_cond(body, cond[end: len(cond)])
+            return process_cond(body, cond[end : len(cond)])
 
     for i, tok in enumerate(cond):
         if not isinstance(tok, str):
             continue
         if tok.lower() == "and":
             lhs = process_cond(body, cond[:i])
-            rhs = process_cond(body, cond[i + 1:])
-            and_op = AndIOp(
-                operands=[lhs, rhs],
-                result_types=[cobol_bool()]
-            )
+            rhs = process_cond(body, cond[i + 1 :])
+            and_op = AndIOp(operands=[lhs, rhs], result_types=[cobol_bool()])
             body.add_op(and_op)
             return and_op.result
 
@@ -104,19 +141,12 @@ def process_cond(body, cond):
             continue
         if tok.lower() == "or":
             lhs = process_cond(body, cond[:i])
-            rhs = process_cond(body, cond[i + 1:])
-            or_op = OrIOp(
-                operands=[lhs, rhs],
-                result_types=[cobol_bool()]
-            )
+            rhs = process_cond(body, cond[i + 1 :])
+            or_op = OrIOp(operands=[lhs, rhs], result_types=[cobol_bool()])
             body.add_op(or_op)
             return or_op.result
 
-    classes = [
-        "alphabetic",
-        "negative",
-        "numeric"
-    ]
+    classes = ["alphabetic", "negative", "numeric"]
     for i, tok in enumerate(cond):
         if tok.lower() == "is":
             expr = symbol_table[cond[i - 1]]["result"]
@@ -128,22 +158,16 @@ def process_cond(body, cond):
                 kind = cond[i + 1] if i < len(cond) - 1 else None
             is_op = IsOp(
                 operands=[expr],
-                properties={
-                    "kind" : StringAttr(kind),
-                    "is_positive" : StringAttr(pos)
-                },
-                result_types=[cobol_bool()]
+                properties={"kind": StringAttr(kind), "is_positive": StringAttr(pos)},
+                result_types=[cobol_bool()],
             )
             body.add_op(is_op)
             return is_op.result
 
     for i, tok in enumerate(cond):
         if tok.lower() == "not":
-            expr = process_cond(body, cond[i + 1:])
-            not_op = NotOp(
-                operands=[expr],
-                result_types=[cobol_decimal(1,1)]
-            )
+            expr = process_cond(body, cond[i + 1 :])
+            not_op = NotOp(operands=[expr], result_types=[cobol_decimal(1, 1)])
             body.add_op(not_op)
             return not_op.result
 
@@ -151,11 +175,15 @@ def process_cond(body, cond):
         comp_operators = ["eq", "ne", "slt", "sle", "sgt", "sge"]
         if tok in comp_operators:
             lhs = process_cond(body, cond[:i])
-            rhs = process_cond(body, cond[i + 1:])
+            rhs = process_cond(body, cond[i + 1 :])
             cmp_op = CmpIOp(
                 operands=[lhs, rhs],
                 result_types=[cobol_bool()],
-                properties={ "predicate": IntegerAttr.from_int_and_width(comp_operators.index(tok), 8) }
+                properties={
+                    "predicate": IntegerAttr.from_int_and_width(
+                        comp_operators.index(tok), 8
+                    )
+                },
             )
             body.add_op(cmp_op)
             return cmp_op.result
@@ -165,8 +193,14 @@ def process_cond(body, cond):
 # var_name: { value, result }
 symbol_table = {}
 
-def processStatements(body, lines, first_run) -> ModuleOp:
+
+#def process_statements(body: Block, lines: any, first_run: bool, module_ops: any = None) -> ModuleOp:
+def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
     start = 1 if first_run else 0
+
+    # for group item declarations
+    # {level, body}
+    struct_regions_stack = []
 
     for i in range(start, len(lines)):
         operation = lines[i]
@@ -190,7 +224,7 @@ def processStatements(body, lines, first_run) -> ModuleOp:
                 if type == "lit":
                     op = ConstantOp(
                         attributes={"value": StringAttr(arg[0])},
-                        result_types=[cobol_string(len(arg[0]))]
+                        result_types=[cobol_string(len(arg[0]))],
                     )
                     body.add_op(op)
                     ops.append(op.result)
@@ -210,15 +244,15 @@ def processStatements(body, lines, first_run) -> ModuleOp:
                 cond=res_cond,
                 true_region=Region(Block()),
                 false_region=else_region,
-                return_types=[]
+                return_types=[],
             )
             then_block = ifOp.true_region.block
-            processStatements(then_block, data["then"], False)
+            process_statements(then_block, data["then"], False)
             then_block.add_op(YieldOp())
 
             if else_region:
                 else_block = ifOp.false_region.block
-                processStatements(else_block, data["else"], False)
+                process_statements(else_block, data["else"], False)
                 else_block.add_op(YieldOp())
 
             body.add_op(ifOp)
@@ -251,14 +285,11 @@ def processStatements(body, lines, first_run) -> ModuleOp:
                     value = StringAttr(sym_value)
                     res = cobol_string(len(sym_value))
 
-            else: # type[src] = string
+            else:  # type[src] = string
                 value = StringAttr(data_src)
                 res = cobol_string(len(data_src))
 
-            constOp = ConstantOp(
-                attributes={"value": value },
-                result_types=[res]
-            )
+            constOp = ConstantOp(attributes={"value": value}, result_types=[res])
             body.add_op(constOp)
             src = constOp.result
             dst = symbol_table[data_dst]["result"]
@@ -271,11 +302,11 @@ def processStatements(body, lines, first_run) -> ModuleOp:
             literal = data.get("literal")
             type = data.get("type")
             length = data.get("length")
+            level = int(data.get("level"))
 
             # for floats:
             int_part = data.get("int_part")
             frac_part = data.get("frac_part")
-
 
             def get_float_type(digits: int) -> int:
                 if digits <= 4:
@@ -296,29 +327,71 @@ def processStatements(body, lines, first_run) -> ModuleOp:
             elif type == "alpha" or type == "alnum":
                 decl_value = StringAttr(literal)
                 res_type = cobol_string(length)
-            else:
-                # type is float:
+            elif type == "float":
                 total_digits = int_part + frac_part
                 float_type = get_float_type(total_digits)
                 decl_value = FloatAttr(literal, float_type)
                 res_type = cobol_decimal(int_part, frac_part)
+            else:
+                # unknown type
+                pass
 
             declOp = DeclareOp(
-                attributes={ "value": decl_value },
-                result_types=[res_type]
+                attributes={"value": decl_value, "level": IntegerAttr(int(level), 8)},
+                result_types=[res_type],
             )
-            body.add_op(declOp)
+
+            while struct_regions_stack and int(level) <= int(
+                struct_regions_stack[-1][0]
+            ):
+                struct_regions_stack.pop()
+
+            if struct_regions_stack:
+                struct_regions_stack[-1][1].block.add_op(declOp)
+            else:
+                body.add_op(declOp)
 
             if literal:
                 symbol_table[name] = {
-                    "value": literal.strip('\'') if not isinstance(literal, int | float) else literal,
-                    "result": declOp.result
+                    "value": (
+                        literal.strip("'")
+                        if not isinstance(literal, int | float)
+                        else literal
+                    ),
+                    "result": declOp.result,
                 }
             else:
-                symbol_table[name] = {
-                    "value" : None,
-                    "result" : declOp.result
-                }
+                symbol_table[name] = {"value": None, "result": declOp.result}
+            continue
+
+        elif operation.get("STRUCT"):
+            op_data = operation.get("STRUCT")
+            name = op_data.get("name")
+            level = op_data.get("level")
+
+            struct_body = Region(Block())
+
+            res_type = cobol_record(name)
+
+            structOp = StructOp(
+                attributes={"struct_name": StringAttr(name)},
+                regions={struct_body},
+                result_types=[res_type],
+            )
+
+            while struct_regions_stack and int(level) <= int(
+                struct_regions_stack[-1][0]
+            ):
+                struct_regions_stack.pop()
+
+            if struct_regions_stack:
+                struct_regions_stack[-1][1].block.add_op(structOp)
+            else:
+                #module_ops.append(structOp)
+                body.add_op(structOp)
+
+            symbol_table[name] = {"value": None, "result": structOp.result}
+            struct_regions_stack.append([op_data.get("level"), struct_body])
             continue
 
         elif operation.get("STOP"):
@@ -341,30 +414,38 @@ def emit_cobol_dialect(lines):
     module = ModuleOp([])
     fun = FunctionOp(
         attributes={
-            "sym_name":StringAttr(prog_id),
-            "function_type":FunctionType.from_lists([],[])
+            "sym_name": StringAttr(prog_id),
+            "function_type": FunctionType.from_lists([], []),
         },
-        regions=[builtin.Region(builtin.Block())]
+        regions=[builtin.Region(builtin.Block())],
     )
     body = fun.body.block
     module.body.block.add_op(fun)
 
-    processStatements(body, lines, True)
+    # For top-lvl declarations: structs and functions
+    #module_ops = []
+
+    process_statements(body, lines, True)
+    #process_statements(body, lines, True, module_ops)
+
+    #module_ops.append(fun)
+
+    #for op in module_ops:
+    #    module.body.block.add_op(op)
 
     return module
-
-
 
 
 # write partially lowered mlir to file
 def write_to_file(filename, module):
     file_path = "out/" + filename + ".mlir"
-    with open(file_path, 'w') as file:
+    with open(file_path, "w") as file:
         printer = Printer(stream=file)
         printer.print_op(module)
 
+
 # translation from builtin dialects to llvm dialect
-'''
+"""
 def translate_to_llmv(file_name):
     subprocess.run([
         "xdsl-opt", "out/" + file_name + ".mlir", #"out/mlir_output.mlir",
@@ -372,8 +453,7 @@ def translate_to_llmv(file_name):
         "--print-between-passes",
         "-o", "out/" + file_name + "_llvm.mlir" #"out/out_llvm.mlir"
     ])
-'''
-
+"""
 
 
 def main():
@@ -390,14 +470,10 @@ def main():
 
     # xdsl: translate to cobol dialect
     module = emit_cobol_dialect(lines)
-
     print(module)
-
-    # convert 
 
     # xdsl: lowering to emitc dialect
     lower_to_emitc(module)
-
     print(module)
 
     # write to file

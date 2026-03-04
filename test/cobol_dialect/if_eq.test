@@ -1,0 +1,23 @@
+# Test: IF/ELSE with = comparison
+# REQUIRES: koopa
+# RUN: %cobol-translate %S/inputs/if_eq.cbl 2>&1 | FileCheck %s
+
+# CHECK: builtin.module {
+# CHECK-NEXT:   "cobol.func"() ({
+# CHECK-NEXT:     %0 = "cobol.declare"() {value = 0 : i8, level = 77 : i8} : () -> !cobol.decimal<2 : i32, 0 : i32>
+# CHECK-NEXT:     %1 = "cobol.declare"() {value = 0 : i8, level = 77 : i8} : () -> !cobol.decimal<2 : i32, 0 : i32>
+# CHECK-NEXT:     %2 = "cobol.constant"() {value = 7 : i8} : () -> !cobol.decimal<1 : i32, 0 : i32>
+# CHECK-NEXT:     "cobol.move"(%2, %0) : (!cobol.decimal<1 : i32, 0 : i32>, !cobol.decimal<2 : i32, 0 : i32>) -> ()
+# CHECK-NEXT:     %3 = "cobol.constant"() {value = 7 : i8} : () -> !cobol.decimal<1 : i32, 0 : i32>
+# CHECK-NEXT:     "cobol.move"(%3, %1) : (!cobol.decimal<1 : i32, 0 : i32>, !cobol.decimal<2 : i32, 0 : i32>) -> ()
+# CHECK-NEXT:     %4 = "cobol.cmpi"(%0, %1) <{predicate = 0 : i8}> : (!cobol.decimal<2 : i32, 0 : i32>, !cobol.decimal<2 : i32, 0 : i32>) -> !cobol.bool
+# CHECK-NEXT:     scf.if %4 {
+# CHECK-NEXT:       %5 = "cobol.constant"() {value = "EQUAL"} : () -> !cobol.string<5 : i32>
+# CHECK-NEXT:       "cobol.display"(%5) : (!cobol.string<5 : i32>) -> ()
+# CHECK-NEXT:     } else {
+# CHECK-NEXT:       %6 = "cobol.constant"() {value = "NOT EQUAL"} : () -> !cobol.string<9 : i32>
+# CHECK-NEXT:       "cobol.display"(%6) : (!cobol.string<9 : i32>) -> ()
+# CHECK-NEXT:     }
+# CHECK-NEXT:     "cobol.stop"() : () -> ()
+# CHECK-NEXT:   }) {sym_name = "IFEQ", function_type = () -> ()} : () -> ()
+# CHECK-NEXT: }

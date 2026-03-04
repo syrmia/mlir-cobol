@@ -1,0 +1,22 @@
+# Test: 3-level nested group items (01 -> 02 -> 03)
+# REQUIRES: koopa
+# RUN: %cobol-translate %S/inputs/nested_struct.cbl 2>&1 | FileCheck %s
+
+# CHECK: builtin.module {
+# CHECK-NEXT:   "cobol.func"() ({
+# CHECK-NEXT:     %0 = "cobol.struct"() ({
+# CHECK-NEXT:       %1 = "cobol.declare"() {value = 12345 : i32, level = 2 : i8} : () -> !cobol.decimal<5 : i32, 0 : i32>
+# CHECK-NEXT:       %2 = "cobol.declare"() {value = "'TEST TRANSACTION'", level = 2 : i8} : () -> !cobol.string<25 : i32>
+# CHECK-NEXT:       %3 = "cobol.struct"() ({
+# CHECK-NEXT:         %4 = "cobol.declare"() {value = 1.243400e+02 : f64, level = 3 : i8} : () -> !cobol.decimal<6 : i32, 2 : i32>
+# CHECK-NEXT:         %5 = "cobol.declare"() {value = 1.775400e+02 : f64, level = 3 : i8} : () -> !cobol.decimal<6 : i32, 2 : i32>
+# CHECK-NEXT:         %6 = "cobol.declare"() {value = 5.320000e+01 : f64, level = 3 : i8} : () -> !cobol.decimal<6 : i32, 2 : i32>
+# CHECK-NEXT:       }) {struct_name = "DETAILS"} : () -> !cobol.record<"DETAILS">
+# CHECK-NEXT:       %7 = "cobol.declare"() {value = 0 : i32, level = 2 : i8} : () -> !cobol.decimal<7 : i32, 0 : i32>
+# CHECK-NEXT:       %8 = "cobol.declare"() {value = "", level = 2 : i8} : () -> !cobol.string<50 : i32>
+# CHECK-NEXT:     }) {struct_name = "TRANSACTION-RECORD"} : () -> !cobol.record<"TRANSACTION-RECORD">
+# CHECK-NEXT:     %9 = "cobol.constant"() {value = "WRITING RECORD: "} : () -> !cobol.string<16 : i32>
+# CHECK-NEXT:     "cobol.display"(%9, %0) : (!cobol.string<16 : i32>, !cobol.record<"TRANSACTION-RECORD">) -> ()
+# CHECK-NEXT:     "cobol.stop"() : () -> ()
+# CHECK-NEXT:   }) {sym_name = "STRUCT", function_type = () -> ()} : () -> ()
+# CHECK-NEXT: }
