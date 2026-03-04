@@ -168,7 +168,7 @@ class StopRunOp(IRDLOperation):
 
 @irdl_op_definition
 class SubOp(IRDLOperation):
-    name = "cobol.add"
+    name = "cobol.sub"
     lhs = operand_def()
     rhs = operand_def()
     result = result_def()
