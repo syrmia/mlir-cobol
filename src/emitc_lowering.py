@@ -340,20 +340,21 @@ class ConvertStructOp(RewritePattern):
 
         struct_name_ref = SymbolRefAttr(struct_name)
         new_struct_body = op.body.clone()
-        #res_type = EmitC_LValueType(EmitC_OpaqueType(struct_name))
+        res_type = EmitC_LValueType(EmitC_OpaqueType(struct_name))
 
         # class definition
         class_op = EmitC_ClassOp(
             struct_name_ref,
-            new_struct_body
+            new_struct_body,
         )
         rewriter.insert_op(class_op, InsertPoint.before(rewriter.current_operation))
 
-        #var_op = EmitC_VariableOp(
-        #    EmitC_OpaqueAttr(struct_name),
-        #    res_type
-        #)
-        #rewriter.replace_op(op, var_op)
+        # variable instance of the struct type
+        var_op = EmitC_VariableOp(
+            EmitC_OpaqueAttr(struct_name),
+            res_type,
+        )
+        rewriter.replace_op(op, var_op)
 
 
 class ConvertCobolToEmitcPass(ModulePass):

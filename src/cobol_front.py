@@ -392,13 +392,6 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
 
             symbol_table[name] = {"value": None, "result": structOp.result}
             struct_regions_stack.append([op_data.get("level"), struct_body])
-
-            res_type = cobol_record(name)
-            declOp = DeclareOp(
-                attributes={"value": StringAttr(name), "level": IntegerAttr(int(level), 8)},
-                result_types=[res_type],
-            )
-            body.add_op(declOp)
             continue
 
         elif operation.get("STOP"):
