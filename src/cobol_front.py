@@ -194,7 +194,8 @@ def process_cond(body, cond):
 symbol_table = {}
 
 
-def processStatements(body, lines, first_run) -> ModuleOp:
+#def process_statements(body: Block, lines: any, first_run: bool, module_ops: any = None) -> ModuleOp:
+def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
     start = 1 if first_run else 0
 
     # for group item declarations
@@ -246,12 +247,12 @@ def processStatements(body, lines, first_run) -> ModuleOp:
                 return_types=[],
             )
             then_block = ifOp.true_region.block
-            processStatements(then_block, data["then"], False)
+            process_statements(then_block, data["then"], False)
             then_block.add_op(YieldOp())
 
             if else_region:
                 else_block = ifOp.false_region.block
-                processStatements(else_block, data["else"], False)
+                process_statements(else_block, data["else"], False)
                 else_block.add_op(YieldOp())
 
             body.add_op(ifOp)
@@ -373,7 +374,7 @@ def processStatements(body, lines, first_run) -> ModuleOp:
             res_type = cobol_record(name)
 
             structOp = StructOp(
-                attributes={"class_name": StringAttr(name)},
+                attributes={"struct_name": StringAttr(name)},
                 regions={struct_body},
                 result_types=[res_type],
             )
@@ -386,10 +387,18 @@ def processStatements(body, lines, first_run) -> ModuleOp:
             if struct_regions_stack:
                 struct_regions_stack[-1][1].block.add_op(structOp)
             else:
+                #module_ops.append(structOp)
                 body.add_op(structOp)
 
             symbol_table[name] = {"value": None, "result": structOp.result}
             struct_regions_stack.append([op_data.get("level"), struct_body])
+
+            res_type = cobol_record(name)
+            declOp = DeclareOp(
+                attributes={"value": StringAttr(name), "level": IntegerAttr(int(level), 8)},
+                result_types=[res_type],
+            )
+            body.add_op(declOp)
             continue
 
         elif operation.get("STOP"):
@@ -420,7 +429,16 @@ def emit_cobol_dialect(lines):
     body = fun.body.block
     module.body.block.add_op(fun)
 
-    processStatements(body, lines, True)
+    # For top-lvl declarations: structs and functions
+    #module_ops = []
+
+    process_statements(body, lines, True)
+    #process_statements(body, lines, True, module_ops)
+
+    #module_ops.append(fun)
+
+    #for op in module_ops:
+    #    module.body.block.add_op(op)
 
     return module
 
@@ -459,14 +477,10 @@ def main():
 
     # xdsl: translate to cobol dialect
     module = emit_cobol_dialect(lines)
-
     print(module)
-
-    # convert
 
     # xdsl: lowering to emitc dialect
     lower_to_emitc(module)
-
     print(module)
 
     # write to file
