@@ -7,7 +7,7 @@
 # CHECK-NEXT:     %0 = "cobol.struct"() ({
 # CHECK-NEXT:       %1 = "cobol.declare"() {value = 12345 : i32, level = 2 : i8} : () -> !cobol.decimal<5 : i32, 0 : i32>
 # CHECK-NEXT:       %2 = "cobol.declare"() {value = "'TEST TRANSACTION'", level = 2 : i8} : () -> !cobol.string<25 : i32>
-# CHECK-NEXT:     }) {class_name = "TRANSACTION-RECORD"} : () -> !cobol.record<"TRANSACTION-RECORD">
+# CHECK-NEXT:     }) {struct_name = "TRANSACTION-RECORD"} : () -> !cobol.record<"TRANSACTION-RECORD">
 # CHECK-NEXT:     %3 = "cobol.constant"() {value = "WRITING RECORD: "} : () -> !cobol.string<16 : i32>
 # CHECK-NEXT:     "cobol.display"(%3, %0) : (!cobol.string<16 : i32>, !cobol.record<"TRANSACTION-RECORD">) -> ()
 # CHECK-NEXT:     "cobol.stop"() : () -> ()
