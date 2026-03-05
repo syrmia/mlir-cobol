@@ -133,6 +133,13 @@ class IsOp(IRDLOperation):
 
 
 @irdl_op_definition
+class LoopOp(IRDLOperation):
+    name = "cobol.loop"
+    iters = prop_def(IntegerAttr)
+    body = region_def()
+
+
+@irdl_op_definition
 class MoveOp(IRDLOperation):
     name = "cobol.move"
     src = operand_def()
@@ -189,6 +196,7 @@ COBOL = Dialect(
         DisplayOp,
         FunctionOp,
         IsOp,
+        LoopOp,
         MoveOp,
         OrIOp,
         StopRunOp,

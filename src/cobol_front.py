@@ -268,6 +268,10 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             body.add_op(ifOp)
             continue
 
+        elif operation.get("LOOP"):
+            loop_times = operation.get("LOOP")
+            continue
+
         elif operation.get("MOVE"):
             data = operation.get("MOVE")
 

@@ -11,7 +11,7 @@ import re
 #  Main processing
 # ─────────────────────────────────────────────────────────────────────────────
 # tags that manage their own children (if, for, while):
-internal_recursion_tags = ["ifStatement"]
+internal_recursion_tags = ["ifStatement", "performStatement"]
 
 
 def process_node(elem, ident=0, lines=None):
@@ -242,6 +242,12 @@ def handle_moveStatement(elem):
     return {"MOVE": [var_name, value]}
 
 
+def handle_performStatement(elem):
+    print("looping")
+    var = extractText(elem, "integerLiteral")
+    return {"LOOP": var}
+
+
 def handle_programIdParagraph(elem):
     return {"PROGRAM-ID": extractText(elem, "alphanumericConstant")}
 
@@ -274,6 +280,7 @@ Handlers = {
     "displayStatement": handle_displayStatement,
     "ifStatement": handle_ifStatement,
     "moveStatement": handle_moveStatement,
+    "performStatement": handle_performStatement,
     "programIdParagraph": handle_programIdParagraph,
     "setStatement": handle_setStatement,
     "stopStatement": handle_stopStatement,

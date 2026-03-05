@@ -1,0 +1,11 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. PERFORMLOOP.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+           77 WS-COUNT PIC 99.
+       PROCEDURE DIVISION.
+           MOVE 0 TO WS-COUNT.
+           PERFORM 5 TIMES
+               DISPLAY 'HELLO'
+           END-PERFORM
+           STOP RUN.
