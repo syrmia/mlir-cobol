@@ -1,6 +1,19 @@
-# Test: ADD A TO B (silently dropped, no handler)
+# Test: ADD A TO B
 # REQUIRES: koopa
-# XFAIL: *
 # RUN: %cobol-translate %S/inputs/add_stmt.cbl 2>&1 | FileCheck %s
 
-# CHECK: cobol.add
+# CHECK: builtin.module {
+# CHECK-NEXT:   emitc.include <"iostream">
+# CHECK-NEXT:   emitc.include <"cstdint">
+# CHECK-NEXT:   func.func @ADDSTMT() {
+# CHECK-NEXT:     %0 = "emitc.variable"() <{value = #emitc.opaque<"10">}> : () -> !emitc.lvalue<i8>
+# CHECK-NEXT:     %1 = "emitc.variable"() <{value = #emitc.opaque<"20">}> : () -> !emitc.lvalue<i8>
+# CHECK-NEXT:     %2 = "emitc.load"(%0) : (!emitc.lvalue<i8>) -> i8
+# CHECK-NEXT:     %3 = "emitc.load"(%1) : (!emitc.lvalue<i8>) -> i8
+# CHECK-NEXT:     %4 = emitc.add %2, %3 : (i8, i8) -> i8
+# CHECK-NEXT:     emitc.assign %4 : i8 to %1 : !emitc.lvalue<i8>
+# CHECK-NEXT:     %5 = "emitc.constant"() <{value = #emitc.opaque<"\"B: \"">}> : () -> !emitc.opaque<"std::string">
+# CHECK-NEXT:     emitc.verbatim "std::cout << {} << {};" args %5, %1 : !emitc.opaque<"std::string">, !emitc.lvalue<i8>
+# CHECK-NEXT:     func.return
+# CHECK-NEXT:   }
+# CHECK-NEXT: }
