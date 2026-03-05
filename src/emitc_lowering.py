@@ -26,7 +26,8 @@ from cobol_dialect import (
     OrIOp,
     SetOp,
     StopRunOp,
-    StructOp
+    StructOp,
+    SubOp,
 )
 from dataclasses import dataclass
 from xdsl.context import Context
@@ -62,6 +63,7 @@ from xdsl.dialects.emitc import (
     EmitC_OpaqueType,
     EmitC_OpaqueAttr,
     EmitC_PointerType,
+    EmitC_SubOp,
 )
 from xdsl.dialects.func import FuncOp, ReturnOp
 from xdsl.dialects.scf import IfOp, YieldOp
@@ -123,6 +125,30 @@ class ConvertAcceptOp(RewritePattern):
         string_arg = "std::cin >> {};"
         verbatim_op = EmitC_VerbatimOp(value=StringAttr(string_arg), operands=args)
         rewriter.replace_op(op, verbatim_op)
+
+
+@dataclass
+class ConvertAddOp(RewritePattern):
+    @op_type_rewrite_pattern
+    def match_and_rewrite(self, op: AddOp, rewriter: PatternRewriter):
+        load_frst = EmitC_LoadOp(op.operands[0])
+        load_scnd = EmitC_LoadOp(op.operands[1])
+
+        rewriter.insert_op(load_frst, InsertPoint.before(op))
+        rewriter.insert_op(load_scnd, InsertPoint.before(op))
+
+        add_op = EmitC_AddOp(
+            load_frst.result,
+            load_scnd.result,
+            op.result.type,
+        )
+        rewriter.replace_op(op, add_op)
+
+        assign_op = EmitC_AssignOp(
+            var=op.operands[1],
+            value=add_op.result,
+        )
+        rewriter.insert_op(assign_op, InsertPoint.after(add_op))
 
 
 @dataclass
@@ -190,7 +216,6 @@ class ConvertDeclareOp(RewritePattern):
                 EmitC_OpaqueAttr(StringAttr(str(sym_value.value.data))),
                 EmitC_LValueType(op_res_type),
             )
-            #print(var_op)
             rewriter.replace_op(op, var_op)
 
         elif isinstance(op_res_type, EmitC_LValueType):
@@ -226,15 +251,12 @@ class ConvertDeclareOp(RewritePattern):
 class ConvertDisplayOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: DisplayOp, rewriter: PatternRewriter):
-        #print("rewriting DISPLAY ")
         args = op.args
-        #print("display args: ", args)
         placeholders = " << ".join("{}" for a in args)
         string_arg = "std::cout << " + placeholders + ";"
         verbatim_op = EmitC_VerbatimOp(
             value=StringAttr(string_arg), operands=list(args)
         )
-        #print(verbatim_op)
         rewriter.replace_op(op, verbatim_op)
 
 
@@ -357,6 +379,30 @@ class ConvertStructOp(RewritePattern):
         rewriter.replace_op(op, var_op)
 
 
+@dataclass
+class ConvertSubOp(RewritePattern):
+    @op_type_rewrite_pattern
+    def match_and_rewrite(self, op: SubOp, rewriter: PatternRewriter):
+        load_frst = EmitC_LoadOp(op.operands[0])
+        load_scnd = EmitC_LoadOp(op.operands[1])
+
+        rewriter.insert_op(load_frst, InsertPoint.before(op))
+        rewriter.insert_op(load_scnd, InsertPoint.before(op))
+
+        sub_op = EmitC_SubOp(
+            load_scnd.result,
+            load_frst.result,
+            op.result.type,
+        )
+        rewriter.replace_op(op, sub_op)
+
+        assign_op = EmitC_AssignOp(
+            var=op.operands[1],
+            value=sub_op.result,
+        )
+        rewriter.insert_op(assign_op, InsertPoint.after(sub_op))
+
+
 class ConvertCobolToEmitcPass(ModulePass):
     """
     Converts cobol dialect to emitc dialect.
@@ -399,6 +445,7 @@ class ConvertCobolToEmitcPass(ModulePass):
                     CobolStringTypeConversion(),
                     CobolRecordTypeConversion(),
                     ConvertAcceptOp(),
+                    ConvertAddOp(),
                     ConvertAndIOp(),
                     ConvertCmpIOp(),
                     ConvertConstantOp(),
@@ -415,6 +462,7 @@ class ConvertCobolToEmitcPass(ModulePass):
                     ConvertStopOp(),
                     ConvertSetOp(),
                     ConvertStructOp(),
+                    ConvertSubOp(),
                     # RemoveUnusedOperations()
                 ]
             ),

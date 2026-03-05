@@ -44,6 +44,7 @@ from cobol_dialect import (
     OrIOp,
     StopRunOp,
     SetOp,
+    SubOp,
 )
 from emitc_lowering import lower_to_emitc
 from util.xml_handlers import process_node
@@ -194,7 +195,7 @@ def process_cond(body, cond):
 symbol_table = {}
 
 
-#def process_statements(body: Block, lines: any, first_run: bool, module_ops: any = None) -> ModuleOp:
+# def process_statements(body: Block, lines: any, first_run: bool, module_ops: any = None) -> ModuleOp:
 def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
     start = 1 if first_run else 0
 
@@ -216,7 +217,16 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             body.add_op(op)
             continue
 
-        if operation.get("DISPLAY"):
+        elif operation.get("ADD"):
+            vars = operation.get("ADD")
+            lhs = symbol_table[vars[0]]["result"]
+            rhs = symbol_table[vars[1]]["result"]
+            res_type = symbol_table[vars[1]]["result"].type
+            op = AddOp(operands={lhs, rhs}, result_types=[res_type])
+            body.add_op(op)
+            continue
+
+        elif operation.get("DISPLAY"):
             arg_list = operation.get("DISPLAY")
             ops = []
             for arg in arg_list:
@@ -387,7 +397,7 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             if struct_regions_stack:
                 struct_regions_stack[-1][1].block.add_op(structOp)
             else:
-                #module_ops.append(structOp)
+                # module_ops.append(structOp)
                 body.add_op(structOp)
 
             symbol_table[name] = {"value": None, "result": structOp.result}
@@ -396,6 +406,15 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
 
         elif operation.get("STOP"):
             body.add_op(StopRunOp())
+            continue
+
+        elif operation.get("SUB"):
+            vars = operation.get("SUB")
+            lhs = symbol_table[vars[0]]["result"]
+            rhs = symbol_table[vars[1]]["result"]
+            res_type = symbol_table[vars[1]]["result"].type
+            sub_op = SubOp(operands={lhs, rhs}, result_types=[res_type])
+            body.add_op(sub_op)
             continue
 
         else:
@@ -423,14 +442,14 @@ def emit_cobol_dialect(lines):
     module.body.block.add_op(fun)
 
     # For top-lvl declarations: structs and functions
-    #module_ops = []
+    # module_ops = []
 
     process_statements(body, lines, True)
-    #process_statements(body, lines, True, module_ops)
+    # process_statements(body, lines, True, module_ops)
 
-    #module_ops.append(fun)
+    # module_ops.append(fun)
 
-    #for op in module_ops:
+    # for op in module_ops:
     #    module.body.block.add_op(op)
 
     return module

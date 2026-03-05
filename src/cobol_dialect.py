@@ -62,6 +62,7 @@ class AcceptOp(IRDLOperation):
 
 @irdl_op_definition
 class AddOp(IRDLOperation):
+    # to do: more than 2 oprnds
     name = "cobol.add"
     lhs = operand_def()
     rhs = operand_def()
@@ -165,6 +166,14 @@ class StopRunOp(IRDLOperation):
     name = "cobol.stop"
 
 
+@irdl_op_definition
+class SubOp(IRDLOperation):
+    name = "cobol.sub"
+    lhs = operand_def()
+    rhs = operand_def()
+    result = result_def()
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  Dialect registration
 # ─────────────────────────────────────────────────────────────────────────────
@@ -185,6 +194,7 @@ COBOL = Dialect(
         StopRunOp,
         SetOp,
         StructOp,
+        SubOp
     ],
     [CobolBoolType, CobolStringType, CobolDecimalType, CobolRecordType],
 )

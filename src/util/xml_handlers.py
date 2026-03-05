@@ -120,6 +120,13 @@ def handle_acceptStatement(elem):
     return {"ACCEPT": var}
 
 
+def handle_addStatement(elem):
+    # to do: literals
+    idents = extractVarNames(elem, "identifier")
+    # first one: arg, second one: arg & res
+    return {"ADD": idents}
+
+
 def handle_dataDescriptionEntry(elem):
     name = extractText(elem, "cobolWord")
     string_literal = extractText(elem, "alphanumericLiteral")
@@ -250,11 +257,19 @@ def handle_stopStatement(elem):
     return {"STOP": "RUN"}
 
 
+def handle_subtractStatement(elem):
+    # to do: literals
+    idents = extractVarNames(elem, "identifier")
+    # first one: arg, second one: arg & res
+    return {"SUB": idents}
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  Handlers dictionary
 # ─────────────────────────────────────────────────────────────────────────────
 Handlers = {
     "acceptStatement": handle_acceptStatement,
+    "addStatement": handle_addStatement,
     "dataDescriptionEntry": handle_dataDescriptionEntry,
     "displayStatement": handle_displayStatement,
     "ifStatement": handle_ifStatement,
@@ -262,4 +277,5 @@ Handlers = {
     "programIdParagraph": handle_programIdParagraph,
     "setStatement": handle_setStatement,
     "stopStatement": handle_stopStatement,
+    "subtractStatement": handle_subtractStatement
 }
