@@ -137,17 +137,18 @@ class ConvertAddOp(RewritePattern):
         rewriter.insert_op(load_frst, InsertPoint.before(op))
         rewriter.insert_op(load_scnd, InsertPoint.before(op))
 
-        # da koristim address of operaciju ?
-
         add_op = EmitC_AddOp(
-            #op.operands[0],#.value_type,
-            #op.operands[0],#.value_type,
             load_frst.result,
             load_scnd.result,
             op.result.type,
         )
-        #rewriter.replace_all_uses_with(op.operands[1], add_op.result)
         rewriter.replace_op(op, add_op)
+
+        assign_op = EmitC_AssignOp(
+            var=op.operands[1],
+            value=add_op.result,
+        )
+        rewriter.insert_op(assign_op, InsertPoint.after(add_op))
 
 
 @dataclass
@@ -382,7 +383,24 @@ class ConvertStructOp(RewritePattern):
 class ConvertSubOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: SubOp, rewriter: PatternRewriter):
-        pass
+        load_frst = EmitC_LoadOp(op.operands[0])
+        load_scnd = EmitC_LoadOp(op.operands[1])
+
+        rewriter.insert_op(load_frst, InsertPoint.before(op))
+        rewriter.insert_op(load_scnd, InsertPoint.before(op))
+
+        sub_op = EmitC_SubOp(
+            load_scnd.result,
+            load_frst.result,
+            op.result.type,
+        )
+        rewriter.replace_op(op, sub_op)
+
+        assign_op = EmitC_AssignOp(
+            var=op.operands[1],
+            value=sub_op.result,
+        )
+        rewriter.insert_op(assign_op, InsertPoint.after(sub_op))
 
 
 class ConvertCobolToEmitcPass(ModulePass):
