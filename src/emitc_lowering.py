@@ -19,9 +19,12 @@ from cobol_dialect import (
     CmpIOp,
     DeclareOp,
     DisplayOp,
+    DivOp,
+    ExpOp,
     FunctionOp,
     IsOp,
     MoveOp,
+    MulOp,
     NotOp,
     OrIOp,
     SetOp,
@@ -358,7 +361,7 @@ class ConvertStopOp(RewritePattern):
 
 
 @dataclass
-class ConvertStructOp(RewritePattern):
+class ConvertStructOp(RewritePattern): # still to do
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: StructOp, rewriter: PatternRewriter):
         struct_name = StringAttr(op.attributes["struct_name"].data.replace("-", "_"))
@@ -398,6 +401,9 @@ class ConvertSubOp(RewritePattern):
             op.result.type,
         )
         rewriter.replace_op(op, sub_op)
+
+        if op.properties["kind"].data == "compute":
+            return
 
         assign_op = EmitC_AssignOp(
             var=op.operands[1],
