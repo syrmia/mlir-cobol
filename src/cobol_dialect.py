@@ -116,6 +116,20 @@ class DisplayOp(IRDLOperation):
 
 
 @irdl_op_definition
+class ExpOp(IRDLOperation):
+    name = "cobol.exp"
+    src = operand_def()
+    dst = operand_def()
+
+
+@irdl_op_definition
+class DivOp(IRDLOperation):
+    name = "cobol.div"
+    src = operand_def()
+    dst = operand_def()
+
+
+@irdl_op_definition
 class IfOp(IRDLOperation):
     name = "cobol.if"
     condition = operand_def(IntegerAttr)
@@ -142,6 +156,13 @@ class LoopOp(IRDLOperation):
 @irdl_op_definition
 class MoveOp(IRDLOperation):
     name = "cobol.move"
+    src = operand_def()
+    dst = operand_def()
+
+
+@irdl_op_definition
+class MulOp(IRDLOperation):
+    name = "cobol.mul"
     src = operand_def()
     dst = operand_def()
 
@@ -194,10 +215,13 @@ COBOL = Dialect(
         ConstantOp,
         DeclareOp,
         DisplayOp,
+        DivOp,
+        ExpOp,
         FunctionOp,
         IsOp,
         LoopOp,
         MoveOp,
+        MulOp,
         OrIOp,
         StopRunOp,
         SetOp,
