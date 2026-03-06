@@ -144,6 +144,9 @@ class ConvertAddOp(RewritePattern):
         )
         rewriter.replace_op(op, add_op)
 
+        if op.properties["kind"].data == "compute":
+            return
+
         assign_op = EmitC_AssignOp(
             var=op.operands[1],
             value=add_op.result,
