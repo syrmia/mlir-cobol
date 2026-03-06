@@ -120,6 +120,7 @@ class ExpOp(IRDLOperation):
     name = "cobol.exp"
     src = operand_def()
     dst = operand_def()
+    result = result_def()
 
 
 @irdl_op_definition
@@ -127,6 +128,7 @@ class DivOp(IRDLOperation):
     name = "cobol.div"
     src = operand_def()
     dst = operand_def()
+    result = result_def()
 
 
 @irdl_op_definition
@@ -165,6 +167,7 @@ class MulOp(IRDLOperation):
     name = "cobol.mul"
     src = operand_def()
     dst = operand_def()
+    result = result_def()
 
 
 @irdl_op_definition
