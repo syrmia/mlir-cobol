@@ -44,6 +44,12 @@ def extractText(elem, tag):
     )
 
 
+def extractCompute(elem):
+    text = "".join(t.text for t in elem.findall(".//t") if t.text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
 # because koopa separates letters from nums in variable names...
 def extractVarNames(elem, tag):
     vars = []
@@ -125,6 +131,12 @@ def handle_addStatement(elem):
     idents = extractVarNames(elem, "identifier")
     # first one: arg, second one: arg & res
     return {"ADD": idents}
+
+
+def handle_computeStatement(elem):
+    expression = extractCompute(elem)
+    print("sav txt: ", expression)
+    return { "COMPUTE": expression }
 
 
 def handle_dataDescriptionEntry(elem):
@@ -276,6 +288,7 @@ def handle_subtractStatement(elem):
 Handlers = {
     "acceptStatement": handle_acceptStatement,
     "addStatement": handle_addStatement,
+    "computeStatement": handle_computeStatement,
     "dataDescriptionEntry": handle_dataDescriptionEntry,
     "displayStatement": handle_displayStatement,
     "ifStatement": handle_ifStatement,
