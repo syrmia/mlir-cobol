@@ -67,6 +67,8 @@ class AddOp(IRDLOperation):
     lhs = operand_def()
     rhs = operand_def()
     result = result_def()
+    # add to or compute; different results
+    kind = prop_def(StringAttr)
 
 
 @irdl_op_definition
@@ -129,6 +131,8 @@ class DivOp(IRDLOperation):
     src = operand_def()
     dst = operand_def()
     result = result_def()
+    # add to or compute; different results
+    kind = prop_def(StringAttr)
 
 
 @irdl_op_definition
@@ -168,7 +172,8 @@ class MulOp(IRDLOperation):
     src = operand_def()
     dst = operand_def()
     result = result_def()
-
+    # add to or compute; different results
+    kind = prop_def(StringAttr)
 
 @irdl_op_definition
 class NotOp(IRDLOperation):
@@ -203,6 +208,8 @@ class SubOp(IRDLOperation):
     lhs = operand_def()
     rhs = operand_def()
     result = result_def()
+    # add to or compute; different results
+    kind = prop_def(StringAttr)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
