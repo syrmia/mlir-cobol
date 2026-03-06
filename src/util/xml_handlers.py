@@ -134,8 +134,7 @@ def handle_addStatement(elem):
 
 
 def handle_computeStatement(elem):
-    expression = extractCompute(elem)
-    print("sav txt: ", expression)
+    expression = re.findall(r"[A-Za-z_][A-Za-z0-9_]*|[()+\-*/=]", extractCompute(elem))
     return { "COMPUTE": expression }
 
 
