@@ -238,7 +238,7 @@ def process_expression(body, expression):
         if tok.lower() == "*":
             lhs = process_expression(body, expression[:i])
             rhs = process_expression(body, expression[i + 1 :])
-            mul_op = MulOp(operands=[lhs, rhs], result_types=[cobol_decimal(2, 0)])
+            mul_op = MulOp(operands=[lhs, rhs], result_types=[cobol_decimal(2, 0)], properties={"kind": StringAttr("compute")})
             body.add_op(mul_op)
             return mul_op.result
 
@@ -258,7 +258,7 @@ def process_expression(body, expression):
         if tok.lower() == "/":
             lhs = process_expression(body, expression[:i])
             rhs = process_expression(body, expression[i + 1 :])
-            div_op = DivOp(operands=[lhs, rhs], result_types=[cobol_decimal(2, 0)])
+            div_op = DivOp(operands=[lhs, rhs], result_types=[cobol_decimal(2, 0)], properties={"kind": StringAttr("compute")})
             body.add_op(div_op)
             return div_op.result
 
@@ -268,7 +268,7 @@ def process_expression(body, expression):
         if tok.lower() == "**":
             lhs = process_expression(body, expression[:i])
             rhs = process_expression(body, expression[i + 1 :])
-            exp_op = ExpOp(operands=[lhs, rhs], result_types=[cobol_decimal(2, 0)])
+            exp_op = ExpOp(operands=[lhs, rhs], result_types=[cobol_decimal(2, 0)], properties={"kind": StringAttr("compute")})
             body.add_op(exp_op)
             return exp_op.result
 
