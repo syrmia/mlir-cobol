@@ -6,7 +6,7 @@
 # CHECK-NEXT:   "cobol.func"() ({
 # CHECK-NEXT:     %0 = "cobol.declare"() {value = 30 : i8, level = 77 : i8} : () -> !cobol.decimal<2 : i32, 0 : i32>
 # CHECK-NEXT:     %1 = "cobol.declare"() {value = 10 : i8, level = 77 : i8} : () -> !cobol.decimal<2 : i32, 0 : i32>
-# CHECK-NEXT:     %2 = "cobol.sub"(%1, %0) : (!cobol.decimal<2 : i32, 0 : i32>, !cobol.decimal<2 : i32, 0 : i32>) -> !cobol.decimal<2 : i32, 0 : i32>
+# CHECK-NEXT:     %2 = "cobol.sub"(%1, %0) <{kind = "sub_from"}> : (!cobol.decimal<2 : i32, 0 : i32>, !cobol.decimal<2 : i32, 0 : i32>) -> !cobol.decimal<2 : i32, 0 : i32>
 # CHECK-NEXT:     %3 = "cobol.constant"() {value = "A: "} : () -> !cobol.string<3 : i32>
 # CHECK-NEXT:     "cobol.display"(%3, %0) : (!cobol.string<3 : i32>, !cobol.decimal<2 : i32, 0 : i32>) -> ()
 # CHECK-NEXT:     "cobol.stop"() : () -> ()

@@ -3,12 +3,12 @@
 # RUN: %cobol-translate %S/inputs/add_stmt.cbl 2>&1 | FileCheck %s
 
 # CHECK: builtin.module {
-# CHECK-NEXT:  "cobol.func"() ({
-# CHECK-NEXT:    %0 = "cobol.declare"() {value = 10 : i8, level = 77 : i8} : () -> !cobol.decimal<2 : i32, 0 : i32>
-# CHECK-NEXT:    %1 = "cobol.declare"() {value = 20 : i8, level = 77 : i8} : () -> !cobol.decimal<2 : i32, 0 : i32>
-# CHECK-NEXT:    %2 = "cobol.add"(%0, %1) : (!cobol.decimal<2 : i32, 0 : i32>, !cobol.decimal<2 : i32, 0 : i32>) -> !cobol.decimal<2 : i32, 0 : i32>
-# CHECK-NEXT:    %3 = "cobol.constant"() {value = "B: "} : () -> !cobol.string<3 : i32>
-# CHECK-NEXT:    "cobol.display"(%3, %1) : (!cobol.string<3 : i32>, !cobol.decimal<2 : i32, 0 : i32>) -> ()
-# CHECK-NEXT:    "cobol.stop"() : () -> ()
-# CHECK-NEXT:  }) {sym_name = "ADDSTMT", function_type = () -> ()} : () -> ()
-# CHECK-NEXT:}
+# CHECK-NEXT:   "cobol.func"() ({
+# CHECK-NEXT:     %0 = "cobol.declare"() {value = 10 : i8, level = 77 : i8} : () -> !cobol.decimal<2 : i32, 0 : i32>
+# CHECK-NEXT:     %1 = "cobol.declare"() {value = 20 : i8, level = 77 : i8} : () -> !cobol.decimal<2 : i32, 0 : i32>
+# CHECK-NEXT:     %2 = "cobol.add"(%0, %1) <{kind = "add_to"}> : (!cobol.decimal<2 : i32, 0 : i32>, !cobol.decimal<2 : i32, 0 : i32>) -> !cobol.decimal<2 : i32, 0 : i32>
+# CHECK-NEXT:     %3 = "cobol.constant"() {value = "B: "} : () -> !cobol.string<3 : i32>
+# CHECK-NEXT:     "cobol.display"(%3, %1) : (!cobol.string<3 : i32>, !cobol.decimal<2 : i32, 0 : i32>) -> ()
+# CHECK-NEXT:     "cobol.stop"() : () -> ()
+# CHECK-NEXT:   }) {sym_name = "ADDSTMT", function_type = () -> ()} : () -> ()
+# CHECK-NEXT: }
