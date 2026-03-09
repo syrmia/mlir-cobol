@@ -18,7 +18,6 @@ These features are parsed by Koopa but have no handler in `xml_handlers.py`, so 
 | Test | COBOL Feature | What Happens |
 |------|---------------|--------------|
 | `perform_loop` | `PERFORM N TIMES ... END-PERFORM` | Loop structure ignored; body inlined once |
-| `compute_stmt` | `COMPUTE RESULT = A + B` | Entire statement ignored |
 | `evaluate_stmt` | `EVALUATE ... WHEN ... END-EVALUATE` | Branching ignored; all `WHEN` bodies inlined sequentially |
 | `goto_stmt` | `GO TO label` | Jump ignored; all paragraphs inlined sequentially |
 
