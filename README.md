@@ -128,21 +128,27 @@ The dialect includes the following operations:
 - `!cobol.string<length>` - Fixed-length string type
 - `!cobol.decimal<digits, scale>` - Decimal type with precision
 - `!cobol.bool` - Boolean type
+- `!cobol.record<record_name>` - Structures
+
 
 ### Operations
 - `cobol.accept` - Input (COBOL ACCEPT statement)
+- `cobol.add` - Add operation
 - `cobol.andi` - Logical And operation
 - `cobol.cmpi` - Relational operators: ==, !=, <, <= , >, >=
 - `cobol.constant` - Literal values
 - `cobol.declare` - Variable declaration
 - `cobol.display` - Output (COBOL DISPLAY statement)
+- `cobol.div` - Division operation
 - `cobol.func` - Represents a COBOL program with its PROCEDURE DIVISION
 - `cobol.is` - Is operator (COBOL IS operator, also IS NOT)
 - `cobol.move` - Data movement (COBOL MOVE statement)
+- `cobol.mul` - Mul operation
 - `cobol.not` - Unary not operator
 - `cobol.ori` - Logical Or operation
 - `cobol.set` - COBOL SET operator
 - `cobol.stop` - Program termination (STOP RUN)
+- `cobol.sub` - Subtraction operation
 - ...
 
 ## Example
@@ -234,4 +240,3 @@ This project is licensed under the terms specified in the LICENSE file.
 ## To Do
 
 - [ ] Finish implementing the rewrite pattern for the COBOL `IS` command
-- [ ] Change the IF statement translation flow; instead of `COBOL -> scf -> cf -> C++` flow, implement either `COBOL -> cobol -> emitc -> C++`, or `COBOL -> scf -> emitc -> C++`
