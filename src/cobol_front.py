@@ -337,6 +337,15 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             body.add_op(disp_op)
             continue
 
+        elif operation.get("DIV"):
+            vars = operation.get("DIV")
+            lhs = symbol_table[vars[0]]["result"]
+            rhs = symbol_table[vars[1]]["result"]
+            res_type = symbol_table[vars[1]]["result"].type
+            op = DivOp(operands={lhs, rhs}, result_types=[res_type], properties={"kind": StringAttr("div_into")})
+            body.add_op(op)
+            continue
+
         elif operation.get("IF"):
             data = operation.get("IF")
             res_cond = process_cond(body, data["cond"])
@@ -401,6 +410,15 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             src = constOp.result
             dst = symbol_table[data_dst]["result"]
             body.add_op(MoveOp(operands=[src, dst]))
+            continue
+
+        elif operation.get("MUL"):
+            vars = operation.get("MUL")
+            lhs = symbol_table[vars[0]]["result"]
+            rhs = symbol_table[vars[1]]["result"]
+            res_type = symbol_table[vars[1]]["result"].type
+            op = MulOp(operands={lhs, rhs}, result_types=[res_type], properties={"kind": StringAttr("mul_by")})
+            body.add_op(op)
             continue
 
         elif operation.get("PICTURE"):
@@ -560,18 +578,6 @@ def write_to_file(filename, module):
         printer.print_op(module)
 
 
-# translation from builtin dialects to llvm dialect
-"""
-def translate_to_llmv(file_name):
-    subprocess.run([
-        "xdsl-opt", "out/" + file_name + ".mlir", #"out/mlir_output.mlir",
-        "-p" + "printf-to-llvm,convert-memref-to-ptr,convert-ptr-to-llvm",
-        "--print-between-passes",
-        "-o", "out/" + file_name + "_llvm.mlir" #"out/out_llvm.mlir"
-    ])
-"""
-
-
 def main():
     """Main entry point for cobol-front."""
     if len(sys.argv) != 2:
@@ -595,9 +601,6 @@ def main():
     # write to file
     file_name = os.path.splitext(Path(sys.argv[1]).name)[0]
     write_to_file(file_name, module)
-
-    # emit llvm dialect
-    # translate_to_llmv(file_name)
 
 
 if __name__ == "__main__":
