@@ -1,0 +1,10 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DIVSTMT.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+           77 A PIC 99 VALUE 10.
+           77 B PIC 99 VALUE 20.
+       PROCEDURE DIVISION.
+           DIVIDE A INTO B.
+           DISPLAY 'B: ' B.
+           STOP RUN.

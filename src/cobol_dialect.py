@@ -67,6 +67,8 @@ class AddOp(IRDLOperation):
     lhs = operand_def()
     rhs = operand_def()
     result = result_def()
+    # add to or compute; different results
+    kind = prop_def(StringAttr)
 
 
 @irdl_op_definition
@@ -116,6 +118,24 @@ class DisplayOp(IRDLOperation):
 
 
 @irdl_op_definition
+class ExpOp(IRDLOperation):
+    name = "cobol.exp"
+    src = operand_def()
+    dst = operand_def()
+    result = result_def()
+
+
+@irdl_op_definition
+class DivOp(IRDLOperation):
+    name = "cobol.div"
+    src = operand_def()
+    dst = operand_def()
+    result = result_def()
+    # add to or compute; different results
+    kind = prop_def(StringAttr)
+
+
+@irdl_op_definition
 class IfOp(IRDLOperation):
     name = "cobol.if"
     condition = operand_def(IntegerAttr)
@@ -133,11 +153,27 @@ class IsOp(IRDLOperation):
 
 
 @irdl_op_definition
+class LoopOp(IRDLOperation):
+    name = "cobol.loop"
+    iters = prop_def(IntegerAttr)
+    body = region_def()
+
+
+@irdl_op_definition
 class MoveOp(IRDLOperation):
     name = "cobol.move"
     src = operand_def()
     dst = operand_def()
 
+
+@irdl_op_definition
+class MulOp(IRDLOperation):
+    name = "cobol.mul"
+    src = operand_def()
+    dst = operand_def()
+    result = result_def()
+    # add to or compute; different results
+    kind = prop_def(StringAttr)
 
 @irdl_op_definition
 class NotOp(IRDLOperation):
@@ -172,6 +208,8 @@ class SubOp(IRDLOperation):
     lhs = operand_def()
     rhs = operand_def()
     result = result_def()
+    # add to or compute; different results
+    kind = prop_def(StringAttr)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -187,9 +225,13 @@ COBOL = Dialect(
         ConstantOp,
         DeclareOp,
         DisplayOp,
+        DivOp,
+        ExpOp,
         FunctionOp,
         IsOp,
+        LoopOp,
         MoveOp,
+        MulOp,
         OrIOp,
         StopRunOp,
         SetOp,

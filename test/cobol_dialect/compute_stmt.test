@@ -1,6 +1,16 @@
 # Test: COMPUTE RESULT = A + B (silently dropped, no handler)
 # REQUIRES: koopa
-# XFAIL: *
 # RUN: %cobol-translate %S/inputs/compute_stmt.cbl 2>&1 | FileCheck %s
 
-# CHECK: cobol.add
+# CHECK: builtin.module {
+# CHECK-NEXT:   "cobol.func"() ({
+# CHECK-NEXT:     %0 = "cobol.declare"() {value = 10 : i8, level = 77 : i8} : () -> !cobol.decimal<2 : i32, 0 : i32>
+# CHECK-NEXT:     %1 = "cobol.declare"() {value = 20 : i8, level = 77 : i8} : () -> !cobol.decimal<2 : i32, 0 : i32>
+# CHECK-NEXT:     %2 = "cobol.declare"() {value = 0 : i16, level = 77 : i8} : () -> !cobol.decimal<3 : i32, 0 : i32>
+# CHECK-NEXT:     %3 = "cobol.add"(%0, %1) <{kind = "compute"}> : (!cobol.decimal<2 : i32, 0 : i32>, !cobol.decimal<2 : i32, 0 : i32>) -> !cobol.decimal<2 : i32, 0 : i32>
+# CHECK-NEXT:     "cobol.move"(%3, %2) : (!cobol.decimal<2 : i32, 0 : i32>, !cobol.decimal<3 : i32, 0 : i32>) -> ()
+# CHECK-NEXT:     %4 = "cobol.constant"() {value = "RESULT: "} : () -> !cobol.string<8 : i32>
+# CHECK-NEXT:     "cobol.display"(%4, %2) : (!cobol.string<8 : i32>, !cobol.decimal<3 : i32, 0 : i32>) -> ()
+# CHECK-NEXT:     "cobol.stop"() : () -> ()
+# CHECK-NEXT:   }) {sym_name = "COMPUTESTMT", function_type = () -> ()} : () -> ()
+# CHECK-NEXT: }

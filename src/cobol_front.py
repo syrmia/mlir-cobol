@@ -32,18 +32,21 @@ from cobol_dialect import (
     AcceptOp,
     AddOp,
     AndIOp,
-    StructOp,
     CmpIOp,
     ConstantOp,
     DeclareOp,
     DisplayOp,
+    DivOp,
+    ExpOp,
     FunctionOp,
     IsOp,
     MoveOp,
+    MulOp,
     NotOp,
     OrIOp,
     StopRunOp,
     SetOp,
+    StructOp,
     SubOp,
 )
 from emitc_lowering import lower_to_emitc
@@ -190,6 +193,86 @@ def process_cond(body, cond):
             return cmp_op.result
 
 
+def process_expression(body, expression):
+    if len(expression) == 1:
+        if isinstance(expression[0], OpResult):
+            return expression[0]
+
+        var = symbol_table[expression[0]]
+        res = var["result"]
+        return res
+
+    def find_matching_paren(start, l):
+        depth = 0
+        for i in range(start, len(l)):
+            if l[i] == "(":
+                depth += 1
+            elif l[i] == ")":
+                depth -= 1
+                if depth == 0:
+                    return i
+        return -1
+
+    if expression[0] == "(":
+        end = find_matching_paren(0, expression)
+        res = process_expression(body, expression[1:end])
+        if end == len(expression) - 1:
+            return res
+        else:
+            expression[end] = res
+            return process_expression(body, expression[end : len(expression)])
+
+    for i, tok in enumerate(expression):
+        if not isinstance(tok, str):
+            continue
+        if tok.lower() == "+":
+            lhs = process_expression(body, expression[:i])
+            rhs = process_expression(body, expression[i + 1 :])
+            add_op = AddOp(operands=[lhs, rhs], result_types=[cobol_decimal(2, 0)], properties={"kind": StringAttr("compute")})
+            body.add_op(add_op)
+            return add_op.result
+
+    for i, tok in enumerate(expression):
+        if not isinstance(tok, str):
+            continue
+        if tok.lower() == "*":
+            lhs = process_expression(body, expression[:i])
+            rhs = process_expression(body, expression[i + 1 :])
+            mul_op = MulOp(operands=[lhs, rhs], result_types=[cobol_decimal(2, 0)], properties={"kind": StringAttr("compute")})
+            body.add_op(mul_op)
+            return mul_op.result
+
+    for i, tok in enumerate(expression):
+        if not isinstance(tok, str):
+            continue
+        if tok.lower() == "-":
+            lhs = process_expression(body, expression[:i])
+            rhs = process_expression(body, expression[i + 1 :])
+            sub_op = SubOp(operands=[lhs, rhs], result_types=[cobol_decimal(2, 0)], properties={"kind": StringAttr("compute")})
+            body.add_op(sub_op)
+            return sub_op.result
+
+    for i, tok in enumerate(expression):
+        if not isinstance(tok, str):
+            continue
+        if tok.lower() == "/":
+            lhs = process_expression(body, expression[:i])
+            rhs = process_expression(body, expression[i + 1 :])
+            div_op = DivOp(operands=[lhs, rhs], result_types=[cobol_decimal(2, 0)], properties={"kind": StringAttr("compute")})
+            body.add_op(div_op)
+            return div_op.result
+
+    for i, tok in enumerate(expression):
+        if not isinstance(tok, str):
+            continue
+        if tok.lower() == "**":
+            lhs = process_expression(body, expression[:i])
+            rhs = process_expression(body, expression[i + 1 :])
+            exp_op = ExpOp(operands=[lhs, rhs], result_types=[cobol_decimal(2, 0)], properties={"kind": StringAttr("compute")})
+            body.add_op(exp_op)
+            return exp_op.result
+
+
 # dictionary for declared and/or defined vars
 # var_name: { value, result }
 symbol_table = {}
@@ -222,8 +305,17 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             lhs = symbol_table[vars[0]]["result"]
             rhs = symbol_table[vars[1]]["result"]
             res_type = symbol_table[vars[1]]["result"].type
-            op = AddOp(operands={lhs, rhs}, result_types=[res_type])
+            op = AddOp(operands={lhs, rhs}, result_types=[res_type], properties={"kind": StringAttr("add_to")})
             body.add_op(op)
+            continue
+
+        elif operation.get("COMPUTE"):
+            expression = operation.get("COMPUTE")
+            res_var = expression[1]
+            expr_res = process_expression(body, expression[expression.index('=') + 1:])
+            src = expr_res
+            dst = symbol_table[res_var]["result"]
+            body.add_op(MoveOp(operands=[src, dst]))
             continue
 
         elif operation.get("DISPLAY"):
@@ -243,6 +335,15 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
                     ops.append(var["result"])
             disp_op = DisplayOp(operands=[ops])
             body.add_op(disp_op)
+            continue
+
+        elif operation.get("DIV"):
+            vars = operation.get("DIV")
+            lhs = symbol_table[vars[0]]["result"]
+            rhs = symbol_table[vars[1]]["result"]
+            res_type = symbol_table[vars[1]]["result"].type
+            op = DivOp(operands={lhs, rhs}, result_types=[res_type], properties={"kind": StringAttr("div_into")})
+            body.add_op(op)
             continue
 
         elif operation.get("IF"):
@@ -266,6 +367,11 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
                 else_block.add_op(YieldOp())
 
             body.add_op(ifOp)
+            continue
+
+        elif operation.get("LOOP"):
+            loop_times = operation.get("LOOP")
+            # to do
             continue
 
         elif operation.get("MOVE"):
@@ -304,6 +410,15 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             src = constOp.result
             dst = symbol_table[data_dst]["result"]
             body.add_op(MoveOp(operands=[src, dst]))
+            continue
+
+        elif operation.get("MUL"):
+            vars = operation.get("MUL")
+            lhs = symbol_table[vars[0]]["result"]
+            rhs = symbol_table[vars[1]]["result"]
+            res_type = symbol_table[vars[1]]["result"].type
+            op = MulOp(operands={lhs, rhs}, result_types=[res_type], properties={"kind": StringAttr("mul_by")})
+            body.add_op(op)
             continue
 
         elif operation.get("PICTURE"):
@@ -413,7 +528,7 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             lhs = symbol_table[vars[0]]["result"]
             rhs = symbol_table[vars[1]]["result"]
             res_type = symbol_table[vars[1]]["result"].type
-            sub_op = SubOp(operands={lhs, rhs}, result_types=[res_type])
+            sub_op = SubOp(operands={lhs, rhs}, result_types=[res_type], properties={"kind": StringAttr("sub_from")})
             body.add_op(sub_op)
             continue
 
@@ -463,18 +578,6 @@ def write_to_file(filename, module):
         printer.print_op(module)
 
 
-# translation from builtin dialects to llvm dialect
-"""
-def translate_to_llmv(file_name):
-    subprocess.run([
-        "xdsl-opt", "out/" + file_name + ".mlir", #"out/mlir_output.mlir",
-        "-p" + "printf-to-llvm,convert-memref-to-ptr,convert-ptr-to-llvm",
-        "--print-between-passes",
-        "-o", "out/" + file_name + "_llvm.mlir" #"out/out_llvm.mlir"
-    ])
-"""
-
-
 def main():
     """Main entry point for cobol-front."""
     if len(sys.argv) != 2:
@@ -498,9 +601,6 @@ def main():
     # write to file
     file_name = os.path.splitext(Path(sys.argv[1]).name)[0]
     write_to_file(file_name, module)
-
-    # emit llvm dialect
-    # translate_to_llmv(file_name)
 
 
 if __name__ == "__main__":

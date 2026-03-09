@@ -19,9 +19,12 @@ from cobol_dialect import (
     CmpIOp,
     DeclareOp,
     DisplayOp,
+    DivOp,
+    ExpOp,
     FunctionOp,
     IsOp,
     MoveOp,
+    MulOp,
     NotOp,
     OrIOp,
     SetOp,
@@ -51,11 +54,13 @@ from xdsl.dialects.emitc import (
     EmitC_ClassOp,
     EmitC_ConstantOp,
     EmitC_CmpOp,
+    EmitC_DivOp,
     EmitC_IfOp,
     EmitC_IncludeOp,
     EmitC_LoadOp,
     EmitC_LogicalAndOp,
     EmitC_LogicalOrOp,
+    EmitC_MulOp,
     EmitC_VariableOp,
     EmitC_VerbatimOp,
     EmitC_LValueType,
@@ -67,6 +72,7 @@ from xdsl.dialects.emitc import (
 )
 from xdsl.dialects.func import FuncOp, ReturnOp
 from xdsl.dialects.scf import IfOp, YieldOp
+from xdsl.ir import OpResult
 from xdsl.passes import ModulePass
 from xdsl.pattern_rewriter import (
     GreedyRewritePatternApplier,
@@ -93,6 +99,12 @@ class CobolDecimalTypeConversion(TypeConversionPattern):
         scale = type.scale.value.data
 
         if scale:
+            return Float64Type()
+        else:
+            return EmitCIntegerType(32)
+
+        """
+        if scale:
             digits = length + scale
             if digits <= 7:
                 return Float32Type()
@@ -103,6 +115,7 @@ class CobolDecimalTypeConversion(TypeConversionPattern):
                     return EmitCIntegerType(width)
 
         return "error"  # ...
+        """
 
 
 class CobolStringTypeConversion(TypeConversionPattern):
@@ -131,18 +144,31 @@ class ConvertAcceptOp(RewritePattern):
 class ConvertAddOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: AddOp, rewriter: PatternRewriter):
-        load_frst = EmitC_LoadOp(op.operands[0])
-        load_scnd = EmitC_LoadOp(op.operands[1])
+        lhs = op.operands[0]
+        rhs = op.operands[1]
 
-        rewriter.insert_op(load_frst, InsertPoint.before(op))
-        rewriter.insert_op(load_scnd, InsertPoint.before(op))
+        frst_res = lhs
+        scnd_res = rhs
+
+        if isinstance(lhs.type, EmitC_LValueType):
+            frst_op = EmitC_LoadOp(lhs)
+            frst_res = frst_op.result
+            rewriter.insert_op(frst_op, InsertPoint.before(op))
+
+        if isinstance(rhs.type, EmitC_LValueType):
+            scnd_op = EmitC_LoadOp(rhs)
+            scnd_res = scnd_op.result
+            rewriter.insert_op(scnd_op, InsertPoint.before(op))
 
         add_op = EmitC_AddOp(
-            load_frst.result,
-            load_scnd.result,
+            frst_res,
+            scnd_res,
             op.result.type,
         )
         rewriter.replace_op(op, add_op)
+
+        if op.properties["kind"].data == "compute":
+            return
 
         assign_op = EmitC_AssignOp(
             var=op.operands[1],
@@ -198,20 +224,20 @@ class ConvertDeclareOp(RewritePattern):
         sym_value = op.attributes["value"]
         op_res_type = op.result.type
 
-        #print("sym_name ", sym_value)
-        #print("op res type ", op_res_type)
+        # print("sym_name ", sym_value)
+        # print("op res type ", op_res_type)
 
         if isinstance(op_res_type, IntegerType):
-            #print("Integer je")
+            # print("Integer je")
             var_op = EmitC_VariableOp(
                 EmitC_OpaqueAttr(StringAttr(str(sym_value.value.data))),
                 EmitC_LValueType(op_res_type),
             )
-            #print(var_op)
+            # print(var_op)
             rewriter.replace_op(op, var_op)
 
         elif isinstance(op_res_type, AnyFloat):
-            #print("Float je")
+            # print("Float je")
             var_op = EmitC_VariableOp(
                 EmitC_OpaqueAttr(StringAttr(str(sym_value.value.data))),
                 EmitC_LValueType(op_res_type),
@@ -223,23 +249,20 @@ class ConvertDeclareOp(RewritePattern):
             opaque_type = op_res_type.value_type.value.data
 
             if opaque_type == "std::string":
-                #print("String je")
+                # print("String je")
                 fixed_string = sym_value.data.strip('"').strip("'")
                 var_op = EmitC_VariableOp(
-                    EmitC_OpaqueAttr(
-                        StringAttr('"' + fixed_string + '"')),
-                        op_res_type
+                    EmitC_OpaqueAttr(StringAttr('"' + fixed_string + '"')), op_res_type
                 )
-                #print(var_op)
+                # print(var_op)
                 rewriter.replace_op(op, var_op)
             else:
                 # custom type (struct)
-                #print("Struct je")
+                # print("Struct je")
                 var_op = EmitC_VariableOp(
-                    EmitC_OpaqueAttr(StringAttr(opaque_type)),
-                    op_res_type
+                    EmitC_OpaqueAttr(StringAttr(opaque_type)), op_res_type
                 )
-                #print(var_op)
+                # print(var_op)
                 rewriter.replace_op(op, var_op)
         else:
             print("Type still not supported: ", op_res_type)
@@ -258,6 +281,43 @@ class ConvertDisplayOp(RewritePattern):
             value=StringAttr(string_arg), operands=list(args)
         )
         rewriter.replace_op(op, verbatim_op)
+
+
+@dataclass
+class ConvertDivOp(RewritePattern):
+    @op_type_rewrite_pattern
+    def match_and_rewrite(self, op: DivOp, rewriter: PatternRewriter):
+        lhs = op.operands[0]
+        rhs = op.operands[1]
+
+        frst_res = lhs
+        scnd_res = rhs
+
+        if isinstance(lhs.type, EmitC_LValueType):
+            frst_op = EmitC_LoadOp(lhs)
+            frst_res = frst_op.result
+            rewriter.insert_op(frst_op, InsertPoint.before(op))
+
+        if isinstance(rhs.type, EmitC_LValueType):
+            scnd_op = EmitC_LoadOp(rhs)
+            scnd_res = scnd_op.result
+            rewriter.insert_op(scnd_op, InsertPoint.before(op))
+
+        div_op = EmitC_DivOp(
+            scnd_res,
+            frst_res,
+            op.result.type,
+        )
+        rewriter.replace_op(op, div_op)
+
+        if op.properties["kind"].data == "compute":
+            return
+
+        assign_op = EmitC_AssignOp(
+            var=op.operands[1],
+            value=div_op.result,
+        )
+        rewriter.insert_op(assign_op, InsertPoint.after(div_op))
 
 
 @dataclass
@@ -325,6 +385,43 @@ class ConvertMoveOp(RewritePattern):
 
 
 @dataclass
+class ConvertMulOp(RewritePattern):
+    @op_type_rewrite_pattern
+    def match_and_rewrite(self, op: MulOp, rewriter: PatternRewriter):
+        lhs = op.operands[0]
+        rhs = op.operands[1]
+
+        frst_res = lhs
+        scnd_res = rhs
+
+        if isinstance(lhs.type, EmitC_LValueType):
+            frst_op = EmitC_LoadOp(lhs)
+            frst_res = frst_op.result
+            rewriter.insert_op(frst_op, InsertPoint.before(op))
+
+        if isinstance(rhs.type, EmitC_LValueType):
+            scnd_op = EmitC_LoadOp(rhs)
+            scnd_res = scnd_op.result
+            rewriter.insert_op(scnd_op, InsertPoint.before(op))
+
+        mul_op = EmitC_MulOp(
+            frst_res,
+            scnd_res,
+            op.result.type,
+        )
+        rewriter.replace_op(op, mul_op)
+
+        if op.properties["kind"].data == "compute":
+            return
+
+        assign_op = EmitC_AssignOp(
+            var=op.operands[1],
+            value=mul_op.result,
+        )
+        rewriter.insert_op(assign_op, InsertPoint.after(mul_op))
+
+
+@dataclass
 class ConvertNotOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: NotOp, rewriter: PatternRewriter):
@@ -355,7 +452,7 @@ class ConvertStopOp(RewritePattern):
 
 
 @dataclass
-class ConvertStructOp(RewritePattern):
+class ConvertStructOp(RewritePattern):  # still to do
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: StructOp, rewriter: PatternRewriter):
         struct_name = StringAttr(op.attributes["struct_name"].data.replace("-", "_"))
@@ -383,18 +480,31 @@ class ConvertStructOp(RewritePattern):
 class ConvertSubOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: SubOp, rewriter: PatternRewriter):
-        load_frst = EmitC_LoadOp(op.operands[0])
-        load_scnd = EmitC_LoadOp(op.operands[1])
+        lhs = op.operands[0]
+        rhs = op.operands[1]
 
-        rewriter.insert_op(load_frst, InsertPoint.before(op))
-        rewriter.insert_op(load_scnd, InsertPoint.before(op))
+        frst_res = lhs
+        scnd_res = rhs
+
+        if isinstance(lhs.type, EmitC_LValueType):
+            frst_op = EmitC_LoadOp(lhs)
+            frst_res = frst_op.result
+            rewriter.insert_op(frst_op, InsertPoint.before(op))
+
+        if isinstance(rhs.type, EmitC_LValueType):
+            scnd_op = EmitC_LoadOp(rhs)
+            scnd_res = scnd_op.result
+            rewriter.insert_op(scnd_op, InsertPoint.before(op))
 
         sub_op = EmitC_SubOp(
-            load_scnd.result,
-            load_frst.result,
+            scnd_res,
+            frst_res,
             op.result.type,
         )
         rewriter.replace_op(op, sub_op)
+
+        if op.properties["kind"].data == "compute":
+            return
 
         assign_op = EmitC_AssignOp(
             var=op.operands[1],
@@ -451,12 +561,14 @@ class ConvertCobolToEmitcPass(ModulePass):
                     ConvertConstantOp(),
                     ConvertDeclareOp(),
                     ConvertDisplayOp(),
+                    ConvertDivOp(),
                     ConvertFuncOp(),
                     ConvertStopOp(),
                     ConvertIfOp(),
                     ConvertYieldOp(),
                     ConvertIsOp(),
                     ConvertMoveOp(),
+                    ConvertMulOp(),
                     ConvertNotOp(),
                     ConvertOrIOp(),
                     ConvertStopOp(),

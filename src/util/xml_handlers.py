@@ -11,7 +11,7 @@ import re
 #  Main processing
 # ─────────────────────────────────────────────────────────────────────────────
 # tags that manage their own children (if, for, while):
-internal_recursion_tags = ["ifStatement"]
+internal_recursion_tags = ["ifStatement", "performStatement"]
 
 
 def process_node(elem, ident=0, lines=None):
@@ -42,6 +42,12 @@ def extractText(elem, tag):
         for txt in cons.findall(".//t")
         if txt.text
     )
+
+
+def extractCompute(elem):
+    text = "".join(t.text for t in elem.findall(".//t") if t.text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
 
 
 # because koopa separates letters from nums in variable names...
@@ -127,6 +133,11 @@ def handle_addStatement(elem):
     return {"ADD": idents}
 
 
+def handle_computeStatement(elem):
+    expression = re.findall(r"[A-Za-z_][A-Za-z0-9_]*|[()+\-*/=]", extractCompute(elem))
+    return { "COMPUTE": expression }
+
+
 def handle_dataDescriptionEntry(elem):
     name = extractText(elem, "cobolWord")
     string_literal = extractText(elem, "alphanumericLiteral")
@@ -209,6 +220,12 @@ def handle_displayStatement(elem):
     return {"DISPLAY": args}
 
 
+def handle_divideStatement(elem):
+    idents = extractVarNames(elem, "identifier")
+    # first one: arg, second one: arg & res
+    return {"DIV": idents}
+
+
 def handle_ifStatement(elem):
     condition = extractConditionTokens(elem)
 
@@ -242,6 +259,18 @@ def handle_moveStatement(elem):
     return {"MOVE": [var_name, value]}
 
 
+def handle_multiplyStatement(elem):
+    idents = extractVarNames(elem, "identifier")
+    # first one: arg, second one: arg & res
+    return {"MUL": idents}
+
+
+def handle_performStatement(elem):
+    print("looping")
+    var = extractText(elem, "integerLiteral")
+    return {"LOOP": var}
+
+
 def handle_programIdParagraph(elem):
     return {"PROGRAM-ID": extractText(elem, "alphanumericConstant")}
 
@@ -270,10 +299,14 @@ def handle_subtractStatement(elem):
 Handlers = {
     "acceptStatement": handle_acceptStatement,
     "addStatement": handle_addStatement,
+    "computeStatement": handle_computeStatement,
     "dataDescriptionEntry": handle_dataDescriptionEntry,
     "displayStatement": handle_displayStatement,
+    "divideStatement": handle_divideStatement,
     "ifStatement": handle_ifStatement,
     "moveStatement": handle_moveStatement,
+    "multiplyStatement": handle_multiplyStatement,
+    "performStatement": handle_performStatement,
     "programIdParagraph": handle_programIdParagraph,
     "setStatement": handle_setStatement,
     "stopStatement": handle_stopStatement,
