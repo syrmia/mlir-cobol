@@ -220,6 +220,12 @@ def handle_displayStatement(elem):
     return {"DISPLAY": args}
 
 
+def handle_divideStatement(elem):
+    idents = extractVarNames(elem, "identifier")
+    # first one: arg, second one: arg & res
+    return {"DIV": idents}
+
+
 def handle_ifStatement(elem):
     condition = extractConditionTokens(elem)
 
@@ -251,6 +257,12 @@ def handle_moveStatement(elem):
     value = int(int_value) if int_value else str_value.strip('"').strip("'")
 
     return {"MOVE": [var_name, value]}
+
+
+def handle_multiplyStatement(elem):
+    idents = extractVarNames(elem, "identifier")
+    # first one: arg, second one: arg & res
+    return {"MUL": idents}
 
 
 def handle_performStatement(elem):
@@ -290,8 +302,10 @@ Handlers = {
     "computeStatement": handle_computeStatement,
     "dataDescriptionEntry": handle_dataDescriptionEntry,
     "displayStatement": handle_displayStatement,
+    "divideStatement": handle_divideStatement,
     "ifStatement": handle_ifStatement,
     "moveStatement": handle_moveStatement,
+    "multiplyStatement": handle_multiplyStatement,
     "performStatement": handle_performStatement,
     "programIdParagraph": handle_programIdParagraph,
     "setStatement": handle_setStatement,
