@@ -304,8 +304,8 @@ class ConvertDivOp(RewritePattern):
             rewriter.insert_op(scnd_op, InsertPoint.before(op))
 
         div_op = EmitC_DivOp(
-            frst_res,
             scnd_res,
+            frst_res,
             op.result.type,
         )
         rewriter.replace_op(op, div_op)
