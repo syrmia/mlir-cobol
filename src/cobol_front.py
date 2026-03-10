@@ -106,6 +106,27 @@ def process_cond(body, cond):
         if isinstance(cond[0], OpResult):
             return cond[0]
 
+        # Handle literal tuples produced by extractConditionTokens
+        if isinstance(cond[0], tuple):
+            lit_kind, lit_val = cond[0]
+            if lit_kind == "lit_int":
+                for width in (8, 16, 32, 64):
+                    if lit_val < 2**width:
+                        value = IntegerAttr(lit_val, width)
+                        break
+                res_type = cobol_decimal(len(str(lit_val)), 0)
+            elif lit_kind == "lit_float":
+                value = FloatAttr(lit_val, 64)
+                res_type = cobol_decimal(7, 2)
+            elif lit_kind == "lit_str":
+                value = StringAttr(lit_val)
+                res_type = cobol_string(len(lit_val))
+            else:
+                raise ValueError(f"Unknown literal kind in condition: {lit_kind}")
+            const_op = ConstantOp(attributes={"value": value}, result_types=[res_type])
+            body.add_op(const_op)
+            return const_op.result
+
         var = symbol_table[cond[0]]
         res = var["result"]
         return res
@@ -152,6 +173,8 @@ def process_cond(body, cond):
 
     classes = ["alphabetic", "negative", "numeric"]
     for i, tok in enumerate(cond):
+        if not isinstance(tok, str):
+            continue
         if tok.lower() == "is":
             expr = symbol_table[cond[i - 1]]["result"]
             if cond[i + 1] == "not":
@@ -169,6 +192,8 @@ def process_cond(body, cond):
             return is_op.result
 
     for i, tok in enumerate(cond):
+        if not isinstance(tok, str):
+            continue
         if tok.lower() == "not":
             expr = process_cond(body, cond[i + 1 :])
             not_op = NotOp(operands=[expr], result_types=[cobol_decimal(1, 1)])
@@ -176,6 +201,8 @@ def process_cond(body, cond):
             return not_op.result
 
     for i, tok in enumerate(cond):
+        if not isinstance(tok, str):
+            continue
         comp_operators = ["eq", "ne", "slt", "sle", "sgt", "sge"]
         if tok in comp_operators:
             lhs = process_cond(body, cond[:i])

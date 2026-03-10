@@ -60,7 +60,7 @@ def extractVarNames(elem, tag):
 
 
 def extractConditionTokens(elem):
-    node = elem.find(".//condition")
+    node = elem.find("condition")
     tokens = []
 
     cond_tokens = {
@@ -83,6 +83,28 @@ def extractConditionTokens(elem):
             word = "".join(t.text for t in child.findall("t"))
             if word:
                 tokens.append(word)
+
+        elif tag == "integerLiteral":
+            lit = "".join(t.text for t in child.findall("t"))
+            if lit:
+                tokens.append(("lit_int", int(lit)))
+
+        elif tag == "numericLiteral":
+            # numericLiteral may contain an integerLiteral child which we
+            # already handled above — only add the value when no integer
+            # child was found (e.g. a decimal literal).
+            if child.find("integerLiteral") is None:
+                lit = "".join(t.text for t in child.findall("t"))
+                if lit:
+                    try:
+                        tokens.append(("lit_int", int(lit)))
+                    except ValueError:
+                        tokens.append(("lit_float", float(lit)))
+
+        elif tag == "alphanumericLiteral":
+            lit = "".join(t.text for t in child.findall("t"))
+            if lit:
+                tokens.append(("lit_str", lit.strip("'").strip('"')))
 
         elif tag == "t" and child.text.upper() in cond_tokens:
             if child.text and child.text.strip():
@@ -230,12 +252,12 @@ def handle_ifStatement(elem):
     condition = extractConditionTokens(elem)
 
     then_block = []
-    then_node = elem.find(".//thenBranch")
+    then_node = elem.find("thenBranch")
     if then_node is not None:
         then_block = process_node(then_node)
 
     else_block = []
-    else_node = elem.find(".//elseBranch")
+    else_node = elem.find("elseBranch")
     if else_node is not None:
         else_block = process_node(else_node)
 
