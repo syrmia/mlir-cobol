@@ -189,14 +189,24 @@ class ConvertAndIOp(RewritePattern):
 class ConvertCmpIOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: CmpIOp, rewriter: PatternRewriter):
-        load_frst = EmitC_LoadOp(op.operands[0])
-        load_scnd = EmitC_LoadOp(op.operands[1])
+        lhs = op.operands[0]
+        rhs = op.operands[1]
 
-        rewriter.insert_op(load_frst, InsertPoint.before(op))
-        rewriter.insert_op(load_scnd, InsertPoint.before(op))
+        frst_res = lhs
+        scnd_res = rhs
+
+        if isinstance(lhs.type, EmitC_LValueType):
+            load_frst = EmitC_LoadOp(lhs)
+            frst_res = load_frst.result
+            rewriter.insert_op(load_frst, InsertPoint.before(op))
+
+        if isinstance(rhs.type, EmitC_LValueType):
+            load_scnd = EmitC_LoadOp(rhs)
+            scnd_res = load_scnd.result
+            rewriter.insert_op(load_scnd, InsertPoint.before(op))
 
         cmp_op = EmitC_CmpOp(
-            op.properties["predicate"].value.data, load_frst, load_scnd, IntegerType(1)
+            op.properties["predicate"].value.data, frst_res, scnd_res, IntegerType(1)
         )
         rewriter.replace_op(op, cmp_op)
 
