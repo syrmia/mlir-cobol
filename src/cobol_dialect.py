@@ -153,10 +153,9 @@ class IsOp(IRDLOperation):
 
 
 @irdl_op_definition
-class LoopOp(IRDLOperation):
-    name = "cobol.loop"
-    iters = prop_def(IntegerAttr)
-    body = region_def()
+class GotoOp(IRDLOperation):
+    name = "cobol.goto"
+    target = prop_def(StringAttr)
 
 
 @irdl_op_definition
@@ -188,6 +187,20 @@ class OrIOp(IRDLOperation):
     lhs = operand_def()
     rhs = operand_def()
     result = result_def()
+
+
+@irdl_op_definition
+class ParagraphOp(IRDLOperation):
+    name = "cobol.paragraph"
+    sym_name = prop_def(StringAttr)
+    body = region_def("single_block")
+
+
+@irdl_op_definition
+class PerformOp(IRDLOperation):
+    name = "cobol.perform"
+    times = operand_def()
+    body = region_def("single_block")
 
 
 @irdl_op_definition
@@ -228,11 +241,13 @@ COBOL = Dialect(
         DivOp,
         ExpOp,
         FunctionOp,
+        GotoOp,
         IsOp,
-        LoopOp,
         MoveOp,
         MulOp,
         OrIOp,
+        ParagraphOp,
+        PerformOp,
         StopRunOp,
         SetOp,
         StructOp,
