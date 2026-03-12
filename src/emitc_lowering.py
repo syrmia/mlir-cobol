@@ -22,11 +22,14 @@ from cobol_dialect import (
     DivOp,
     ExpOp,
     FunctionOp,
+    GotoOp,
     IsOp,
     MoveOp,
     MulOp,
     NotOp,
     OrIOp,
+    ParagraphOp,
+    PerformOp,
     SetOp,
     StopRunOp,
     StructOp,
@@ -51,6 +54,7 @@ from xdsl.dialects.emitc import (
     EmitC,
     EmitC_AddOp,
     EmitC_AssignOp,
+    EmitC_CastOp,
     EmitC_ClassOp,
     EmitC_ConstantOp,
     EmitC_CmpOp,
@@ -334,10 +338,17 @@ class ConvertDivOp(RewritePattern):
 class ConvertFuncOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: FunctionOp, rewriter: PatternRewriter, /):
+        cloned_region = op.body.clone()
+        # Ensure the function body ends with a func.return terminator.
+        # StopRunOp is lowered to verbatim "return;" so we always need
+        # an explicit ReturnOp at the end for MLIR.
+        block = cloned_region.block
+        if not block.ops or not isinstance(block.ops.last, ReturnOp):
+            block.add_op(ReturnOp())
         new_func = FuncOp(
             op.attributes["sym_name"].data.replace("-", "_"),
             FunctionType.from_lists([], []),
-            region=op.body.clone(),
+            region=cloned_region,
         )
         rewriter.replace_op(op, new_func)
         return
@@ -387,11 +398,83 @@ class ConvertIsOp(RewritePattern):
 class ConvertMoveOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: MoveOp, rewriter: PatternRewriter):
+        src = op.src
+        dst = op.dst
+
+        # Determine the expected value type for the destination
+        if isinstance(dst.type, EmitC_LValueType):
+            dst_val_type = dst.type.value_type
+        else:
+            dst_val_type = dst.type
+
+        # Insert a cast if the source type doesn't match the destination type
+        if src.type != dst_val_type:
+            cast_op = EmitC_CastOp(
+                operands=[src], result_types=[dst_val_type]
+            )
+            rewriter.insert_op(cast_op, InsertPoint.before(op))
+            src = cast_op.dest
+
         new_op = EmitC_AssignOp(
-            var=op.dst,
-            value=op.src,
+            var=dst,
+            value=src,
         )
         rewriter.replace_op(op, new_op)
+
+
+@dataclass
+class ConvertGotoOp(RewritePattern):
+    @op_type_rewrite_pattern
+    def match_and_rewrite(self, op: GotoOp, rewriter: PatternRewriter):
+        target = op.properties["target"].data.replace("-", "_")
+        verbatim_op = EmitC_VerbatimOp(
+            value=StringAttr(f"goto {target};"),
+            operands=[],
+        )
+        rewriter.replace_op(op, verbatim_op)
+
+
+@dataclass
+class ConvertParagraphOp(RewritePattern):
+    @op_type_rewrite_pattern
+    def match_and_rewrite(self, op: ParagraphOp, rewriter: PatternRewriter):
+        label = op.properties["sym_name"].data.replace("-", "_")
+        label_op = EmitC_VerbatimOp(
+            value=StringAttr(f"{label}:"),
+            operands=[],
+        )
+        rewriter.insert_op(label_op, InsertPoint.before(op))
+        rewriter.inline_block(op.body.block, InsertPoint.before(op))
+        rewriter.erase_op(op)
+
+
+@dataclass
+class ConvertPerformOp(RewritePattern):
+    @op_type_rewrite_pattern
+    def match_and_rewrite(self, op: PerformOp, rewriter: PatternRewriter):
+        times = op.times
+
+        # Load if the times operand is an lvalue
+        if isinstance(times.type, EmitC_LValueType):
+            load_op = EmitC_LoadOp(times)
+            times = load_op.result
+            rewriter.insert_op(load_op, InsertPoint.before(op))
+
+        open_op = EmitC_VerbatimOp(
+            value=StringAttr("for (int32_t i = 0; i < {}; i++) {{"),
+            operands=[times],
+        )
+        rewriter.insert_op(open_op, InsertPoint.before(op))
+
+        # Inline the loop body before the op
+        rewriter.inline_block(op.body.block, InsertPoint.before(op))
+
+        close_op = EmitC_VerbatimOp(
+            value=StringAttr("}"),
+            operands=[],
+        )
+        rewriter.insert_op(close_op, InsertPoint.before(op))
+        rewriter.erase_op(op)
 
 
 @dataclass
@@ -457,8 +540,11 @@ class ConvertSetOp(RewritePattern):
 class ConvertStopOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: StopRunOp, rewriter: PatternRewriter):
-        rewriter.replace_op(op, ReturnOp())
-        return
+        verbatim_op = EmitC_VerbatimOp(
+            value=StringAttr("return;"),
+            operands=[],
+        )
+        rewriter.replace_op(op, verbatim_op)
 
 
 @dataclass
@@ -573,6 +659,7 @@ class ConvertCobolToEmitcPass(ModulePass):
                     ConvertDisplayOp(),
                     ConvertDivOp(),
                     ConvertFuncOp(),
+                    ConvertGotoOp(),
                     ConvertStopOp(),
                     ConvertIfOp(),
                     ConvertYieldOp(),
@@ -581,6 +668,8 @@ class ConvertCobolToEmitcPass(ModulePass):
                     ConvertMulOp(),
                     ConvertNotOp(),
                     ConvertOrIOp(),
+                    ConvertParagraphOp(),
+                    ConvertPerformOp(),
                     ConvertStopOp(),
                     ConvertSetOp(),
                     ConvertStructOp(),
