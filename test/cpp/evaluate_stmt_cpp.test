@@ -1,0 +1,37 @@
+# Test: EVALUATE/WHEN branching: from COBOL to C++
+# REQUIRES: koopa, mlir-translate
+# RUN: %cobol-translate %S/../examples/evaluate_stmt.cbl --emit=emitc -o %S/Output/evaluate_stmt.mlir && \
+# RUN: %mlir-translate --mlir-to-cpp %S/Output/evaluate_stmt.mlir | FileCheck %s
+
+# CHECK: void EVALUATESTMT() {
+# Subject variable initialised to 3
+# CHECK: int32_t {{.*}} = 3;
+# WHEN 1: compare with 1, display "ONE"
+# CHECK: int8_t {{.*}} = 1;
+# CHECK: bool {{.*}} = {{.*}} > {{.*}};
+# CHECK: if ({{.*}}) {
+# CHECK: "ONE"
+# CHECK: std::cout
+# CHECK: } else {
+# WHEN 2: compare with 2, display "TWO"
+# CHECK: int8_t {{.*}} = 2;
+# CHECK: bool {{.*}} = {{.*}} > {{.*}};
+# CHECK: if ({{.*}}) {
+# CHECK: "TWO"
+# CHECK: std::cout
+# CHECK: } else {
+# WHEN 3: compare with 3, display "THREE"
+# CHECK: int8_t {{.*}} = 3;
+# CHECK: bool {{.*}} = {{.*}} > {{.*}};
+# CHECK: if ({{.*}}) {
+# CHECK: "THREE"
+# CHECK: std::cout
+# CHECK: } else {
+# WHEN OTHER: display "OTHER"
+# CHECK: "OTHER"
+# CHECK: std::cout
+# CHECK: }
+# CHECK: }
+# CHECK: }
+# CHECK: return;
+# CHECK: }

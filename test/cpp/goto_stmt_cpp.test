@@ -1,0 +1,22 @@
+# Test: GO TO with paragraphs: from COBOL to C++
+# REQUIRES: koopa, mlir-translate
+# RUN: %cobol-translate %S/../examples/goto_stmt.cbl --emit=emitc -o %S/Output/goto_stmt.mlir && \
+# RUN: %mlir-translate --mlir-to-cpp %S/Output/goto_stmt.mlir | FileCheck %s
+
+# CHECK: void GOTOSTMT() {
+# Paragraph PARA-1
+# CHECK: PARA_1:
+# CHECK: "IN PARA-1"
+# CHECK: std::cout
+# CHECK: goto PARA_3;
+# Paragraph PARA-2
+# CHECK: PARA_2:
+# CHECK: "IN PARA-2"
+# CHECK: std::cout
+# CHECK: return;
+# Paragraph PARA-3
+# CHECK: PARA_3:
+# CHECK: "IN PARA-3"
+# CHECK: std::cout
+# CHECK: return;
+# CHECK: }

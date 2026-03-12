@@ -1,0 +1,20 @@
+# Test: IF without ELSE: from COBOL to C++
+# REQUIRES: koopa, mlir-translate
+# RUN: %cobol-translate %S/inputs/if_no_else.cbl --emit=emitc -o %S/Output/if_no_else.mlir && \
+# RUN: %mlir-translate --mlir-to-cpp %S/Output/if_no_else.mlir | FileCheck %s
+
+# CHECK: void IFNOELSE() {
+# Variable declaration
+# CHECK: int32_t {{.*}} = 0;
+# MOVE 10 TO X (constant + cast + assign)
+# CHECK: int8_t {{.*}} = 10;
+# CHECK: int32_t {{.*}} = (int32_t)
+# IF X > 5
+# CHECK: int8_t {{.*}} = 5;
+# CHECK: bool {{.*}} = {{.*}} > {{.*}};
+# CHECK: if ({{.*}}) {
+# CHECK: "GREATER THAN FIVE"
+# CHECK: std::cout
+# CHECK: }
+# CHECK: return;
+# CHECK: }

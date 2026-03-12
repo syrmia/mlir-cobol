@@ -1,0 +1,34 @@
+# Test: Nested IF/ELSE branching: from COBOL to C++
+# REQUIRES: koopa, mlir-translate
+# RUN: %cobol-translate %S/inputs/nested_if.cbl --emit=emitc -o %S/Output/nested_if.mlir && \
+# RUN: %mlir-translate --mlir-to-cpp %S/Output/nested_if.mlir | FileCheck %s
+
+# CHECK: void NESTEDIF() {
+# Variable declarations and MOVE
+# CHECK: int32_t {{.*}} = 0;
+# CHECK: int32_t {{.*}} = 0;
+# MOVE 10 TO A (constant + cast + assign)
+# CHECK: int8_t {{.*}} = 10;
+# CHECK: int32_t {{.*}} = (int32_t)
+# MOVE 5 TO B
+# CHECK: int8_t {{.*}} = 5;
+# CHECK: int32_t {{.*}} = (int32_t)
+# Outer IF: A > B
+# CHECK: bool {{.*}} = {{.*}} > {{.*}};
+# CHECK: if ({{.*}}) {
+# Inner IF: A > 8
+# CHECK: int8_t {{.*}} = 8;
+# CHECK: bool {{.*}} = {{.*}} > {{.*}};
+# CHECK: if ({{.*}}) {
+# CHECK: "A > B AND A > 8"
+# CHECK: std::cout
+# CHECK: } else {
+# CHECK: "A > B BUT A <= 8"
+# CHECK: std::cout
+# CHECK: }
+# CHECK: } else {
+# CHECK: "A <= B"
+# CHECK: std::cout
+# CHECK: }
+# CHECK: return;
+# CHECK: }

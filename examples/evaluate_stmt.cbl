@@ -1,0 +1,13 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. EVALUATESTMT.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+           77 GRADE PIC 9 VALUE 3.
+       PROCEDURE DIVISION.
+           EVALUATE GRADE
+               WHEN 1 DISPLAY 'ONE'
+               WHEN 2 DISPLAY 'TWO'
+               WHEN 3 DISPLAY 'THREE'
+               WHEN OTHER DISPLAY 'OTHER'
+           END-EVALUATE
+           STOP RUN.
