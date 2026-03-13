@@ -1,6 +1,30 @@
-# Test: Nested IF/ELSE inside IF (crashes with IndexError in process_cond)
+# Test: Nested IF/ELSE inside IF
 # REQUIRES: koopa
-# XFAIL: *
 # RUN: %cobol-translate %S/inputs/nested_if.cbl 2>&1 | FileCheck %s
 
-# CHECK: scf.if
+# CHECK: builtin.module {
+# CHECK-NEXT:   "cobol.func"() ({
+# CHECK-NEXT:     %0 = "cobol.declare"() {value = 0 : i8, level = 77 : i8} : () -> !cobol.decimal<2 : i32, 0 : i32>
+# CHECK-NEXT:     %1 = "cobol.declare"() {value = 0 : i8, level = 77 : i8} : () -> !cobol.decimal<2 : i32, 0 : i32>
+# CHECK-NEXT:     %2 = "cobol.constant"() {value = 10 : i8} : () -> !cobol.decimal<2 : i32, 0 : i32>
+# CHECK-NEXT:     "cobol.move"(%2, %0) : (!cobol.decimal<2 : i32, 0 : i32>, !cobol.decimal<2 : i32, 0 : i32>) -> ()
+# CHECK-NEXT:     %3 = "cobol.constant"() {value = 5 : i8} : () -> !cobol.decimal<1 : i32, 0 : i32>
+# CHECK-NEXT:     "cobol.move"(%3, %1) : (!cobol.decimal<1 : i32, 0 : i32>, !cobol.decimal<2 : i32, 0 : i32>) -> ()
+# CHECK-NEXT:     %4 = "cobol.cmpi"(%0, %1) <{predicate = 4 : i8}> : (!cobol.decimal<2 : i32, 0 : i32>, !cobol.decimal<2 : i32, 0 : i32>) -> !cobol.bool
+# CHECK-NEXT:     scf.if %4 {
+# CHECK-NEXT:       %5 = "cobol.constant"() {value = 8 : i8} : () -> !cobol.decimal<1 : i32, 0 : i32>
+# CHECK-NEXT:       %6 = "cobol.cmpi"(%0, %5) <{predicate = 4 : i8}> : (!cobol.decimal<2 : i32, 0 : i32>, !cobol.decimal<1 : i32, 0 : i32>) -> !cobol.bool
+# CHECK-NEXT:       scf.if %6 {
+# CHECK-NEXT:         %7 = "cobol.constant"() {value = "A > B AND A > 8"} : () -> !cobol.string<15 : i32>
+# CHECK-NEXT:         "cobol.display"(%7) : (!cobol.string<15 : i32>) -> ()
+# CHECK-NEXT:       } else {
+# CHECK-NEXT:         %8 = "cobol.constant"() {value = "A > B BUT A <= 8"} : () -> !cobol.string<16 : i32>
+# CHECK-NEXT:         "cobol.display"(%8) : (!cobol.string<16 : i32>) -> ()
+# CHECK-NEXT:       }
+# CHECK-NEXT:     } else {
+# CHECK-NEXT:       %9 = "cobol.constant"() {value = "A <= B"} : () -> !cobol.string<6 : i32>
+# CHECK-NEXT:       "cobol.display"(%9) : (!cobol.string<6 : i32>) -> ()
+# CHECK-NEXT:     }
+# CHECK-NEXT:     "cobol.stop"() : () -> ()
+# CHECK-NEXT:   }) {sym_name = "NESTEDIF", function_type = () -> ()} : () -> ()
+# CHECK-NEXT: }

@@ -1,6 +1,10 @@
-# Test: EVALUATE/WHEN (silently dropped, all WHEN bodies inlined sequentially)
+# Test: EVALUATE/WHEN branching
 # REQUIRES: koopa
-# XFAIL: *
 # RUN: %cobol-translate %S/inputs/evaluate_stmt.cbl 2>&1 | FileCheck %s
 
+# CHECK: cobol.func
+# CHECK: cobol.declare
+# CHECK: cobol.cmpi
 # CHECK: scf.if
+# CHECK: cobol.display
+# CHECK: cobol.stop

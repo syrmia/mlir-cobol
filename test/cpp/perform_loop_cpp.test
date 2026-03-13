@@ -1,0 +1,15 @@
+# Test: PERFORM N TIMES loop: from COBOL to C++
+# REQUIRES: koopa, mlir-translate
+# RUN: %cobol-translate %S/../examples/perform_loop.cbl --emit=emitc -o %S/Output/perform_loop.mlir && \
+# RUN: %mlir-translate --mlir-to-cpp %S/Output/perform_loop.mlir | FileCheck %s
+
+# CHECK: void PERFORMLOOP() {
+# Variable declaration and MOVE
+# CHECK: int{{.*}} {{.*}} = 0;
+# The for loop from PERFORM 5 TIMES
+# CHECK: for (int32_t i = 0; i < {{.*}}; i++) {
+# CHECK: "HELLO"
+# CHECK: std::cout
+# CHECK: }
+# CHECK: return;
+# CHECK: }

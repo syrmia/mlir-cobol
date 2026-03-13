@@ -39,11 +39,14 @@ from cobol_dialect import (
     DivOp,
     ExpOp,
     FunctionOp,
+    GotoOp,
     IsOp,
     MoveOp,
     MulOp,
     NotOp,
     OrIOp,
+    ParagraphOp,
+    PerformOp,
     StopRunOp,
     SetOp,
     StructOp,
@@ -106,6 +109,27 @@ def process_cond(body, cond):
         if isinstance(cond[0], OpResult):
             return cond[0]
 
+        # Handle literal tuples produced by extractConditionTokens
+        if isinstance(cond[0], tuple):
+            lit_kind, lit_val = cond[0]
+            if lit_kind == "lit_int":
+                for width in (8, 16, 32, 64):
+                    if lit_val < 2**width:
+                        value = IntegerAttr(lit_val, width)
+                        break
+                res_type = cobol_decimal(len(str(lit_val)), 0)
+            elif lit_kind == "lit_float":
+                value = FloatAttr(lit_val, 64)
+                res_type = cobol_decimal(7, 2)
+            elif lit_kind == "lit_str":
+                value = StringAttr(lit_val)
+                res_type = cobol_string(len(lit_val))
+            else:
+                raise ValueError(f"Unknown literal kind in condition: {lit_kind}")
+            const_op = ConstantOp(attributes={"value": value}, result_types=[res_type])
+            body.add_op(const_op)
+            return const_op.result
+
         var = symbol_table[cond[0]]
         res = var["result"]
         return res
@@ -152,6 +176,8 @@ def process_cond(body, cond):
 
     classes = ["alphabetic", "negative", "numeric"]
     for i, tok in enumerate(cond):
+        if not isinstance(tok, str):
+            continue
         if tok.lower() == "is":
             expr = symbol_table[cond[i - 1]]["result"]
             if cond[i + 1] == "not":
@@ -169,6 +195,8 @@ def process_cond(body, cond):
             return is_op.result
 
     for i, tok in enumerate(cond):
+        if not isinstance(tok, str):
+            continue
         if tok.lower() == "not":
             expr = process_cond(body, cond[i + 1 :])
             not_op = NotOp(operands=[expr], result_types=[cobol_decimal(1, 1)])
@@ -176,6 +204,8 @@ def process_cond(body, cond):
             return not_op.result
 
     for i, tok in enumerate(cond):
+        if not isinstance(tok, str):
+            continue
         comp_operators = ["eq", "ne", "slt", "sle", "sgt", "sge"]
         if tok in comp_operators:
             lhs = process_cond(body, cond[:i])
@@ -369,9 +399,128 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             body.add_op(ifOp)
             continue
 
-        elif operation.get("LOOP"):
-            loop_times = operation.get("LOOP")
-            # to do
+        elif operation.get("PERFORM"):
+            data = operation.get("PERFORM")
+            times_val = data["times"]
+            loop_body_stmts = data["body"]
+
+            # Create a constant for the iteration count
+            if isinstance(times_val, int):
+                for width in (8, 16, 32, 64):
+                    if times_val < 2**width:
+                        times_attr = IntegerAttr(times_val, width)
+                        break
+                times_const = ConstantOp(
+                    attributes={"value": times_attr},
+                    result_types=[cobol_decimal(len(str(times_val)), 0)],
+                )
+                body.add_op(times_const)
+                times_result = times_const.result
+            else:
+                # variable reference
+                times_result = symbol_table[times_val]["result"]
+
+            # Build the loop body region
+            loop_region = Region(Block())
+            loop_block = loop_region.block
+            process_statements(loop_block, loop_body_stmts, False)
+
+            perform_op = PerformOp(
+                operands=[times_result],
+                regions=[loop_region],
+            )
+            body.add_op(perform_op)
+            continue
+
+        elif operation.get("EVALUATE"):
+            data = operation.get("EVALUATE")
+            subject_name = data["subject"]
+            cases = data["cases"]
+
+            subject_result = symbol_table[subject_name]["result"]
+
+            # Build a chain of nested scf.if for each WHEN case
+            def build_evaluate_chain(target_body, case_idx):
+                if case_idx >= len(cases):
+                    return
+                case = cases[case_idx]
+
+                if case["other"]:
+                    # WHEN OTHER — just emit the statements directly
+                    process_statements(target_body, case["stmts"], False)
+                    return
+
+                # Create comparison: subject == value
+                val = case["value"]
+                if isinstance(val, int):
+                    for width in (8, 16, 32, 64):
+                        if val < 2**width:
+                            val_attr = IntegerAttr(val, width)
+                            break
+                    val_const = ConstantOp(
+                        attributes={"value": val_attr},
+                        result_types=[cobol_decimal(len(str(val)), 0)],
+                    )
+                    target_body.add_op(val_const)
+                    rhs = val_const.result
+                elif isinstance(val, str):
+                    val_const = ConstantOp(
+                        attributes={"value": StringAttr(val)},
+                        result_types=[cobol_string(len(val))],
+                    )
+                    target_body.add_op(val_const)
+                    rhs = val_const.result
+                else:
+                    return
+
+                cmp_op = CmpIOp(
+                    operands=[subject_result, rhs],
+                    result_types=[cobol_bool()],
+                    properties={
+                        "predicate": IntegerAttr.from_int_and_width(0, 8)  # eq
+                    },
+                )
+                target_body.add_op(cmp_op)
+
+                # Build then region
+                then_region = Region(Block())
+                then_block = then_region.block
+                process_statements(then_block, case["stmts"], False)
+                then_block.add_op(YieldOp())
+
+                # Build else region with remaining cases (recursive)
+                else_region = Region(Block())
+                else_block = else_region.block
+                build_evaluate_chain(else_block, case_idx + 1)
+                else_block.add_op(YieldOp())
+
+                ifOp = IfOp(
+                    cond=cmp_op.result,
+                    true_region=then_region,
+                    false_region=else_region,
+                    return_types=[],
+                )
+                target_body.add_op(ifOp)
+
+            build_evaluate_chain(body, 0)
+            continue
+
+        elif operation.get("GOTO"):
+            target_label = operation.get("GOTO")
+            goto_op = GotoOp(
+                properties={"target": StringAttr(target_label)},
+            )
+            body.add_op(goto_op)
+            continue
+
+        elif operation.get("PARAGRAPH"):
+            para_name = operation.get("PARAGRAPH")
+            para_region = Region(Block())
+            para_op = ParagraphOp(
+                properties={"sym_name": StringAttr(para_name)},
+                regions=[para_region],
+            )
+            body.add_op(para_op)
             continue
 
         elif operation.get("MOVE"):

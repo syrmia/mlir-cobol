@@ -11,7 +11,7 @@ import re
 #  Main processing
 # ─────────────────────────────────────────────────────────────────────────────
 # tags that manage their own children (if, for, while):
-internal_recursion_tags = ["ifStatement", "performStatement"]
+internal_recursion_tags = ["ifStatement", "evaluateStatement", "performStatement"]
 
 
 def process_node(elem, ident=0, lines=None):
@@ -84,6 +84,28 @@ def extractConditionTokens(elem):
             if word:
                 tokens.append(word)
 
+        elif tag == "integerLiteral":
+            lit = "".join(t.text for t in child.findall("t"))
+            if lit:
+                tokens.append(("lit_int", int(lit)))
+
+        elif tag == "numericLiteral":
+            # numericLiteral may contain an integerLiteral child which we
+            # already handled above — only add the value when no integer
+            # child was found (e.g. a decimal literal).
+            if child.find("integerLiteral") is None:
+                lit = "".join(t.text for t in child.findall("t"))
+                if lit:
+                    try:
+                        tokens.append(("lit_int", int(lit)))
+                    except ValueError:
+                        tokens.append(("lit_float", float(lit)))
+
+        elif tag == "alphanumericLiteral":
+            lit = "".join(t.text for t in child.findall("t"))
+            if lit:
+                tokens.append(("lit_str", lit.strip("'").strip('"')))
+
         elif tag == "t" and child.text.upper() in cond_tokens:
             if child.text and child.text.strip():
                 """
@@ -92,7 +114,8 @@ def extractConditionTokens(elem):
                 (e.g. if the last was < or >, and the current is = or >,
                 this forms <=, >=, or <>).
                 """
-                last_tok = tokens[len(tokens) - 1].lower()
+                last_tok_raw = tokens[-1] if tokens else None
+                last_tok = last_tok_raw.lower() if isinstance(last_tok_raw, str) else ""
 
                 if last_tok in ("sgt", "slt"):
                     new_tok = ""
@@ -230,12 +253,12 @@ def handle_ifStatement(elem):
     condition = extractConditionTokens(elem)
 
     then_block = []
-    then_node = elem.find(".//thenBranch")
+    then_node = elem.find("thenBranch")
     if then_node is not None:
         then_block = process_node(then_node)
 
     else_block = []
-    else_node = elem.find(".//elseBranch")
+    else_node = elem.find("elseBranch")
     if else_node is not None:
         else_block = process_node(else_node)
 
@@ -266,9 +289,129 @@ def handle_multiplyStatement(elem):
 
 
 def handle_performStatement(elem):
-    print("looping")
-    var = extractText(elem, "integerLiteral")
-    return {"LOOP": var}
+    """
+    PERFORM n TIMES ... END-PERFORM
+    Extracts iteration count and loop body statements.
+    """
+    # Get iteration count from integerLiteral
+    times = 0
+    for nl in elem.findall(".//integerLiteral"):
+        txt = "".join(t.text for t in nl.findall("t"))
+        if txt:
+            times = int(txt)
+            break
+
+    if times == 0:
+        # Try identifier for variable-based count
+        for cw in elem.findall(".//cobolWord"):
+            w = "".join(t.text for t in cw.findall("t"))
+            if w:
+                times = w  # will be looked up in symbol_table
+                break
+
+    # Extract loop body statements
+    body_stmts = []
+    for child in elem:
+        if child.tag not in ("t",):
+            sub_stmts = process_node(child)
+            body_stmts.extend(sub_stmts)
+
+    return {"PERFORM": {"times": times, "body": body_stmts}}
+
+
+def handle_evaluateStatement(elem):
+    """
+    EVALUATE subject WHEN value1 stmts WHEN value2 stmts ... END-EVALUATE
+
+    Koopa XML structure:
+      <evaluateStatement>
+        <subject><condition>...<identifier>GRADE</identifier>...</condition></subject>
+        <when>
+          <object><literal>...<integerLiteral>1</integerLiteral>...</literal></object>
+          <nestedStatements>...statements...</nestedStatements>
+        </when>
+        ...
+        <whenOther>
+          <nestedStatements>...statements...</nestedStatements>
+        </whenOther>
+      </evaluateStatement>
+    """
+    # The subject is inside <subject> -> <condition> -> <identifier>
+    subject_node = elem.find(".//subject")
+    if subject_node is not None:
+        ident = subject_node.find(".//identifier")
+        if ident is not None:
+            subject = "".join(t.text for t in ident.findall(".//t") if t.text)
+        else:
+            cw = subject_node.find(".//cobolWord")
+            subject = "".join(t.text for t in cw.findall("t")) if cw is not None else ""
+    else:
+        subject = ""
+
+    cases = []
+
+    # Process each <when> branch (regular WHEN value cases)
+    for when_node in elem.findall("when"):
+        value = None
+
+        # Extract value from <object> child
+        obj = when_node.find("object")
+        if obj is not None:
+            # Try numeric literal
+            nl = obj.find(".//integerLiteral")
+            if nl is not None:
+                num_txt = "".join(t.text for t in nl.findall("t"))
+                if num_txt:
+                    value = int(num_txt)
+            if value is None:
+                # Try float
+                nl2 = obj.find(".//numericLiteral")
+                if nl2 is not None and nl2.find("integerLiteral") is None:
+                    num_txt = "".join(t.text for t in nl2.findall("t"))
+                    if num_txt:
+                        try:
+                            value = int(num_txt)
+                        except ValueError:
+                            value = float(num_txt)
+            if value is None:
+                # Try alphanumeric literal
+                al = obj.find(".//alphanumericLiteral")
+                if al is not None:
+                    str_txt = "".join(t.text for t in al.findall("t"))
+                    if str_txt:
+                        value = str_txt.strip("'").strip('"')
+
+        # Extract statements from <nestedStatements>
+        stmts = []
+        nested = when_node.find("nestedStatements")
+        if nested is not None:
+            stmts = process_node(nested)
+
+        cases.append({"value": value, "other": False, "stmts": stmts})
+
+    # Process <whenOther> branch
+    when_other = elem.find("whenOther")
+    if when_other is not None:
+        stmts = []
+        nested = when_other.find("nestedStatements")
+        if nested is not None:
+            stmts = process_node(nested)
+        cases.append({"value": None, "other": True, "stmts": stmts})
+
+    return {"EVALUATE": {"subject": subject, "cases": cases}}
+
+
+def handle_goToStatement(elem):
+    target = ""
+    for cw in elem.findall(".//cobolWord"):
+        target = "".join(t.text for t in cw.findall("t"))
+        break
+    return {"GOTO": target}
+
+
+def handle_paragraphName(elem):
+    name = "".join(t.text for t in elem.findall(".//t") if t.text)
+    return {"PARAGRAPH": name}
 
 
 def handle_programIdParagraph(elem):
@@ -303,12 +446,15 @@ Handlers = {
     "dataDescriptionEntry": handle_dataDescriptionEntry,
     "displayStatement": handle_displayStatement,
     "divideStatement": handle_divideStatement,
+    "evaluateStatement": handle_evaluateStatement,
+    "goToStatement": handle_goToStatement,
     "ifStatement": handle_ifStatement,
     "moveStatement": handle_moveStatement,
     "multiplyStatement": handle_multiplyStatement,
+    "paragraphName": handle_paragraphName,
     "performStatement": handle_performStatement,
     "programIdParagraph": handle_programIdParagraph,
     "setStatement": handle_setStatement,
     "stopStatement": handle_stopStatement,
-    "subtractStatement": handle_subtractStatement
+    "subtractStatement": handle_subtractStatement,
 }

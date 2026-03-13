@@ -1,6 +1,18 @@
-# Test: IF without ELSE branch (crashes with IndexError in process_cond)
+# Test: IF without ELSE branch
 # REQUIRES: koopa
-# XFAIL: *
 # RUN: %cobol-translate %S/inputs/if_no_else.cbl 2>&1 | FileCheck %s
 
-# CHECK: scf.if
+# CHECK: builtin.module {
+# CHECK-NEXT:   "cobol.func"() ({
+# CHECK-NEXT:     %0 = "cobol.declare"() {value = 0 : i8, level = 77 : i8} : () -> !cobol.decimal<2 : i32, 0 : i32>
+# CHECK-NEXT:     %1 = "cobol.constant"() {value = 10 : i8} : () -> !cobol.decimal<2 : i32, 0 : i32>
+# CHECK-NEXT:     "cobol.move"(%1, %0) : (!cobol.decimal<2 : i32, 0 : i32>, !cobol.decimal<2 : i32, 0 : i32>) -> ()
+# CHECK-NEXT:     %2 = "cobol.constant"() {value = 5 : i8} : () -> !cobol.decimal<1 : i32, 0 : i32>
+# CHECK-NEXT:     %3 = "cobol.cmpi"(%0, %2) <{predicate = 4 : i8}> : (!cobol.decimal<2 : i32, 0 : i32>, !cobol.decimal<1 : i32, 0 : i32>) -> !cobol.bool
+# CHECK-NEXT:     scf.if %3 {
+# CHECK-NEXT:       %4 = "cobol.constant"() {value = "GREATER THAN FIVE"} : () -> !cobol.string<17 : i32>
+# CHECK-NEXT:       "cobol.display"(%4) : (!cobol.string<17 : i32>) -> ()
+# CHECK-NEXT:     }
+# CHECK-NEXT:     "cobol.stop"() : () -> ()
+# CHECK-NEXT:   }) {sym_name = "IFNOELSE", function_type = () -> ()} : () -> ()
+# CHECK-NEXT: }

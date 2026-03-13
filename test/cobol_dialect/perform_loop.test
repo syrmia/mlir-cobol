@@ -1,6 +1,10 @@
-# Test: PERFORM N TIMES loop (silently dropped, body inlined once)
+# Test: PERFORM N TIMES loop
 # REQUIRES: koopa
-# XFAIL: *
 # RUN: %cobol-translate %S/inputs/perform_loop.cbl 2>&1 | FileCheck %s
 
-# CHECK: scf.for
+# CHECK: cobol.func
+# CHECK: cobol.declare
+# CHECK: cobol.move
+# CHECK: cobol.perform
+# CHECK: cobol.display
+# CHECK: cobol.stop
