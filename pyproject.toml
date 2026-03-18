@@ -35,6 +35,7 @@ dev = [
 [project.scripts]
 cobol-translate = "cobol_translate:main"
 cobol-equiv = "semantic_equiv.driver:main"
+cobol-bridge = "semantic_equiv.cobol_equiv:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
