@@ -9,6 +9,7 @@ This project implements:
 - A frontend compiler that parses COBOL source files and generates MLIR
 - Lowering from the COBOL dialect to EmitC, producing C++ from COBOL
 - A semantic equivalence checker (`cobol-equiv`) that verifies the generated C++ against a reference implementation using static fingerprinting, structural comparison, and Z3 formal verification
+- A COBOL-to-C++ verification tool (`cobol-verify`) that compiles COBOL through the full MLIR pipeline and checks semantic equivalence against a reference C++ file
 
 ## Semantic Equivalence Checking
 
@@ -46,6 +47,25 @@ cobol-equiv generated.cpp reference.cpp --json          # JSON output
 cobol-equiv --help                                      # Show all options
 ```
 
+## COBOL-to-C++ Verification
+
+The `cobol-verify` tool compiles a COBOL source file through the full MLIR pipeline
+(Koopa → COBOL MLIR → EmitC → mlir-translate → C++), then compares the generated C++
+against a hand-written reference C++ file at the LLVM IR level using the same 3-tier
+analysis as `cobol-equiv`.
+
+**Prerequisites:** Java, koopa.jar (`KOOPA_PATH`), mlir-translate (`MLIR_TRANSLATE`),
+clang, opt.
+
+```bash
+cobol-verify program.cbl reference.cpp                  # Run all tiers
+cobol-verify program.cbl reference.cpp --level static   # Static only (fast)
+cobol-verify program.cbl reference.cpp --level formal   # Z3 only
+cobol-verify program.cbl reference.cpp --json            # JSON output
+cobol-verify program.cbl reference.cpp --keep-temps      # Keep intermediate files
+cobol-verify --help                                      # Show all options
+```
+
 ## Project Structure
 
 ```
@@ -62,6 +82,7 @@ mlir-cobol/
 │   │   ├── compare.py        # Structural alpha-equivalence
 │   │   ├── z3_encoder.py     # Z3 symbolic encoding
 │   │   ├── driver.py         # CLI entry point (cobol-equiv)
+│   │   ├── cobol_equiv.py    # COBOL-to-C++ bridge (cobol-verify)
 │   │   └── report.py         # Output formatting
 │   └── util/
 │       └── xml_handlers.py   # XML file readers

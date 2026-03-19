@@ -409,7 +409,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     import argparse as _argparse
 
     parser = _argparse.ArgumentParser(
-        prog="cobol-bridge",
+        prog="cobol-verify",
         description=(
             "Check semantic equivalence of COBOL source against reference C++ "
             "by compiling COBOL through the MLIR pipeline and comparing "

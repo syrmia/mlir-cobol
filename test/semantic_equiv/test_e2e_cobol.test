@@ -1,0 +1,17 @@
+; RUN: %python %S/semantic_equiv/test_e2e_cobol.py | FileCheck %s
+
+; CHECK: PASS: test_e2e_hello_equiv
+; CHECK: PASS: test_e2e_hello_structural
+; CHECK: PASS: test_e2e_display_one_equiv
+; CHECK: PASS: test_e2e_add_stmt_equiv
+; CHECK: PASS: test_e2e_just_stop_equiv
+; CHECK: PASS: test_e2e_subtract_stmt_equiv
+; CHECK: PASS: test_e2e_mul_stmt_equiv
+; CHECK: PASS: test_e2e_div_stmt_equiv
+; CHECK: PASS: test_e2e_if_simple_equiv
+; CHECK: PASS: test_e2e_move_equiv
+; CHECK: PASS: test_e2e_hello_self_equiv
+; CHECK: PASS: test_e2e_display_one_self_equiv
+; CHECK: PASS: test_e2e_add_stmt_self_equiv
+; CHECK: PASS: test_e2e_hello_formal
+; CHECK: PASS: test_e2e_just_stop_formal
