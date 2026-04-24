@@ -50,8 +50,9 @@ def find_mlir_translate(override: str | None = None) -> Path | None:
         p = Path(env_val)
         if p.is_file():
             return p
-
+    project_root = Path(__file__).resolve().parent.parent.parent
     search_dirs = [
+        str(project_root),
         "/opt/homebrew/opt/llvm/bin",
         "/opt/homebrew/opt/llvm@21/bin",
         "/opt/homebrew/opt/llvm@20/bin",

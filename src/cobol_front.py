@@ -114,7 +114,7 @@ def process_cond(body, cond):
             lit_kind, lit_val = cond[0]
             if lit_kind == "lit_int":
                 for width in (8, 16, 32, 64):
-                    if lit_val < 2**width:
+                    if lit_val < 2**(width-1):
                         value = IntegerAttr(lit_val, width)
                         break
                 res_type = cobol_decimal(len(str(lit_val)), 0)
@@ -407,7 +407,7 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             # Create a constant for the iteration count
             if isinstance(times_val, int):
                 for width in (8, 16, 32, 64):
-                    if times_val < 2**width:
+                    if times_val < 2**(width-1):
                         times_attr = IntegerAttr(times_val, width)
                         break
                 times_const = ConstantOp(
@@ -454,7 +454,7 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
                 val = case["value"]
                 if isinstance(val, int):
                     for width in (8, 16, 32, 64):
-                        if val < 2**width:
+                        if val < 2**(width-1):
                             val_attr = IntegerAttr(val, width)
                             break
                     val_const = ConstantOp(
@@ -515,6 +515,8 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
 
         elif operation.get("PARAGRAPH"):
             para_name = operation.get("PARAGRAPH")
+            if para_name == "Main-Process":
+                continue
             para_region = Region(Block())
             para_op = ParagraphOp(
                 properties={"sym_name": StringAttr(para_name)},
@@ -531,7 +533,7 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
 
             if isinstance(data_src, int):
                 for width in (8, 16, 32, 64):
-                    if data_src - 1 < 2**width:
+                    if data_src < 2**(width - 1):
                         value = IntegerAttr(data_src, width)
                         break
                 res = cobol_decimal(len(str(data_src)), 0)
@@ -542,7 +544,7 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
 
                 if isinstance(sym_value, int):
                     for width in (8, 16, 32, 64):
-                        if sym_value - 1 < 2**width:
+                        if sym_value< 2**(width-1):
                             value = IntegerAttr(sym_value, width)
                             break
                     res = cobol_decimal(len(str(sym_value)), 0)
@@ -594,7 +596,7 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
 
             if type == "int":
                 for width in (8, 16, 32, 64):
-                    if 10**length - 1 < 2**width:
+                    if 10**length < 2**(width-1):
                         decl_value = IntegerAttr(literal, width)
                         break
                 res_type = cobol_decimal(length, 0)
