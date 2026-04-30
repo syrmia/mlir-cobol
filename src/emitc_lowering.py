@@ -74,7 +74,7 @@ from xdsl.dialects.emitc import (
     EmitC_PointerType,
     EmitC_SubOp,
 )
-from xdsl.dialects.func import FuncOp, ReturnOp
+from xdsl.dialects.func import CallOp, FuncOp, ReturnOp
 from xdsl.dialects.scf import IfOp, YieldOp
 from xdsl.ir import OpResult
 from xdsl.passes import ModulePass
@@ -101,12 +101,17 @@ class CobolDecimalTypeConversion(TypeConversionPattern):
     def convert_type(self, type: CobolDecimalType) -> EmitCIntegerType:
         length = type.digits.value.data
         scale = type.scale.value.data
-
         if scale:
             return Float64Type()
         else:
-            return EmitCIntegerType(32)
-
+            if length <= 2:
+                return EmitCIntegerType(8) 
+            elif length <= 4:
+                return EmitCIntegerType(16) 
+            elif length <= 9:
+                return EmitCIntegerType(32)  
+            else:
+                return EmitCIntegerType(64) 
         """
         if scale:
             digits = length + scale
@@ -120,7 +125,6 @@ class CobolDecimalTypeConversion(TypeConversionPattern):
 
         return "error"  # ...
         """
-
 
 class CobolStringTypeConversion(TypeConversionPattern):
     @attr_type_rewrite_pattern
@@ -242,12 +246,10 @@ class ConvertDeclareOp(RewritePattern):
         # print("op res type ", op_res_type)
 
         if isinstance(op_res_type, IntegerType):
-            # print("Integer je")
             var_op = EmitC_VariableOp(
                 EmitC_OpaqueAttr(StringAttr(str(sym_value.value.data))),
                 EmitC_LValueType(op_res_type),
             )
-            # print(var_op)
             rewriter.replace_op(op, var_op)
 
         elif isinstance(op_res_type, AnyFloat):
@@ -343,7 +345,8 @@ class ConvertFuncOp(RewritePattern):
         # StopRunOp is lowered to verbatim "return;" so we always need
         # an explicit ReturnOp at the end for MLIR.
         block = cloned_region.block
-        if not block.ops or not isinstance(block.ops.last, ReturnOp):
+        ops_list = list(block.ops)
+        if not block.ops or not isinstance(block.ops.last, (ReturnOp)):
             block.add_op(ReturnOp())
         new_func = FuncOp(
             op.attributes["sym_name"].data.replace("-", "_"),
@@ -376,9 +379,7 @@ class ConvertYieldOp(RewritePattern):
 class ConvertIsOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: IsOp, rewriter: PatternRewriter):
-        print("Rewriting is op")
-        # to do
-        """print(op.properties)
+        print(op.properties)
         kind_type = op.properties["kind"].data
         is_pos = op.properties["is_positive"].data
         match kind_type:
@@ -391,7 +392,7 @@ class ConvertIsOp(RewritePattern):
                     [op.operands[0]],
                     [IntegerType(1)]
                 )
-                rewriter.replace_op(op, call_op)"""
+                rewriter.replace_op(op, call_op)
 
 
 @dataclass
@@ -540,13 +541,15 @@ class ConvertSetOp(RewritePattern):
 class ConvertStopOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: StopRunOp, rewriter: PatternRewriter):
-        verbatim_op = EmitC_VerbatimOp(
-            value=StringAttr("return;"),
-            operands=[],
-        )
-        rewriter.replace_op(op, verbatim_op)
-
-
+        last_op = op.next_op
+        if isinstance(last_op, ReturnOp):
+            rewriter.erase_op(op)
+        else:
+            verbatim_op = EmitC_VerbatimOp(
+                value=StringAttr("return;"),
+                operands=[],
+            )
+            rewriter.replace_op(op, verbatim_op)  
 @dataclass
 class ConvertStructOp(RewritePattern):  # still to do
     @op_type_rewrite_pattern
@@ -658,9 +661,9 @@ class ConvertCobolToEmitcPass(ModulePass):
                     ConvertDeclareOp(),
                     ConvertDisplayOp(),
                     ConvertDivOp(),
-                    ConvertFuncOp(),
                     ConvertGotoOp(),
                     ConvertStopOp(),
+                    ConvertFuncOp(),
                     ConvertIfOp(),
                     ConvertYieldOp(),
                     ConvertIsOp(),
@@ -670,7 +673,6 @@ class ConvertCobolToEmitcPass(ModulePass):
                     ConvertOrIOp(),
                     ConvertParagraphOp(),
                     ConvertPerformOp(),
-                    ConvertStopOp(),
                     ConvertSetOp(),
                     ConvertStructOp(),
                     ConvertSubOp(),

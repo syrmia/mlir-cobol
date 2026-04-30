@@ -5,7 +5,7 @@
 
 # CHECK: void EVALUATESTMT() {
 # Subject variable initialised to 3
-# CHECK: int32_t {{.*}} = 3;
+# CHECK: int8_t {{.*}} = 3;
 # WHEN 1: compare with 1, display "ONE"
 # CHECK: int8_t {{.*}} = 1;
 # CHECK: bool {{.*}} = {{.*}} > {{.*}};

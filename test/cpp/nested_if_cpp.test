@@ -5,14 +5,12 @@
 
 # CHECK: void NESTEDIF() {
 # Variable declarations and MOVE
-# CHECK: int32_t {{.*}} = 0;
-# CHECK: int32_t {{.*}} = 0;
+# CHECK: int8_t {{.*}} = 0;
+# CHECK: int8_t {{.*}} = 0;
 # MOVE 10 TO A (constant + cast + assign)
 # CHECK: int8_t {{.*}} = 10;
-# CHECK: int32_t {{.*}} = (int32_t)
 # MOVE 5 TO B
 # CHECK: int8_t {{.*}} = 5;
-# CHECK: int32_t {{.*}} = (int32_t)
 # Outer IF: A > B
 # CHECK: bool {{.*}} = {{.*}} > {{.*}};
 # CHECK: if ({{.*}}) {

@@ -5,10 +5,9 @@
 
 # CHECK: void IFNOELSE() {
 # Variable declaration
-# CHECK: int32_t {{.*}} = 0;
+# CHECK: int8_t {{.*}} = 0;
 # MOVE 10 TO X (constant + cast + assign)
 # CHECK: int8_t {{.*}} = 10;
-# CHECK: int32_t {{.*}} = (int32_t)
 # IF X > 5
 # CHECK: int8_t {{.*}} = 5;
 # CHECK: bool {{.*}} = {{.*}} > {{.*}};
