@@ -229,18 +229,24 @@ def handle_displayStatement(elem):
     value along with its type: 'var' for identifiers or 'lit' for literals.
     """
     args = []
-    literals_raw = extractText(elem, "alphanumericLiteral")
-    idents = extractVarNames(elem, "identifier")
-
-    literals = [s for _, s in re.findall(r"""(['"])(.*?)\1""", literals_raw)]
-
-    for l in literals:
-        args.append([l, "lit"])
-
-    for i in idents:
-        args.append([i, "var"])
-
-    return {"DISPLAY": args}
+    no_advancing = False
+    for child in elem:
+        tag = child.tag.lower()
+        if tag == "literal":
+            raw_text = "".join(t.text for t in child.findall(".//t") if t.text).strip()
+            parts = [p.strip() for p in raw_text.split(",") if p.strip()]
+            for p in parts:
+                args.append([p, "lit"])
+                
+        elif tag == "identifier":
+            name = "".join(t.text for t in child.findall(".//t") if t.text).strip()
+            if name.upper() == "ADVANCING":
+                no_advancing = True
+            elif name:
+                args.append([name, "var"])
+    return {"DISPLAY": args,
+            "no_advancing": no_advancing
+        }
 
 
 def handle_divideStatement(elem):
