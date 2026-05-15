@@ -568,7 +568,7 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             lhs = symbol_table[vars[0]]["result"]
             rhs = symbol_table[vars[1]]["result"]
             res_type = symbol_table[vars[1]]["result"].type
-            op = MulOp(operands={lhs, rhs}, result_types=[res_type], properties={"kind": StringAttr("mul_by")})
+            op = MulOp(operands=[lhs, rhs], result_types=[res_type], properties={"kind": StringAttr("mul_by")})
             body.add_op(op)
             continue
 
