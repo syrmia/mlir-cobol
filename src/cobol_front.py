@@ -306,10 +306,17 @@ def process_expression(body, expression):
 # dictionary for declared and/or defined vars
 # var_name: { value, result }
 symbol_table = {}
-
+defined_sections = set()
 
 # def process_statements(body: Block, lines: any, first_run: bool, module_ops: any = None) -> ModuleOp:
 def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
+    for op in lines:
+        s_name = op.get("SECTION")
+        if s_name:
+            defined_sections.add(s_name)
+    screen_registry = {}  
+    in_screen_section = False
+    current_screen = None
     start = 1 if first_run else 0
 
     # for group item declarations
@@ -329,7 +336,47 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             op = AcceptOp(operands=[target])
             body.add_op(op)
             continue
+        
+        elif operation.get("SECTION"):
+            sec_name = operation.get("SECTION")
+            if sec_name.upper() == "SCREEN":
+                in_screen_section = True
+                current_screen = None
+                continue
+            defined_sections.add(sec_name)
+            in_screen_section = False
+            current_screen = None
+            continue
+        elif operation.get("INITIALIZE"):
+            var_name = operation.get("INITIALIZE")
+            
+            if var_name not in symbol_table:
+                sys.stderr.write(f"error: identifier '{var_name}' undefined\n")
+                sys.exit(1)
+            var_info = symbol_table[var_name]
+            dst = var_info["result"]
+            value = var_info["value"]
+            
+            if isinstance(value, int | float):
+                const_zero = ConstantOp(
+                    attributes={"value": IntegerAttr(0, 32)}, 
+                    result_types=[cobol_decimal(1, 0)]
+                )
+                body.add_op(const_zero)
+                body.add_op(MoveOp(operands=[const_zero.result, dst]))
+            
+            else:
+                length = var_info.get("length", 1)
+                spaces = " " * length
 
+                const_space = ConstantOp(
+                    attributes={"value": StringAttr.get(spaces)}, 
+                    result_types=[cobol_string(length)]
+                )
+                body.add_op(const_space)
+                body.add_op(MoveOp(operands=[const_space.result, dst]))
+            
+            continue
         elif operation.get("ADD"):
             vars = operation.get("ADD")
             lhs = symbol_table[vars[0]]["result"]
@@ -348,25 +395,47 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             body.add_op(MoveOp(operands=[src, dst]))
             continue
 
+        elif operation.get("SCREEN_ENTRY"):
+            data = operation.get("SCREEN_ENTRY")
+            level = int(data.get("level"))
+            name = data.get("name")
+            line = data.get("line")
+            column = data.get("column")
+            value = data.get("value")
+            if in_screen_section and level== 1:    
+                    current_screen = name.upper()
+                    screen_registry[current_screen] = []
+                    continue
+            if in_screen_section and level == 5:
+                    line_num = int(line)
+                    col_num  = int(column)
+                    val      = value
+                    screen_registry[current_screen].append(
+                        {"line": line_num, "column": col_num, "value": val}
+                    )
+                    continue  
+            continue
         elif operation.get("DISPLAY"):
             arg_list = operation.get("DISPLAY")
             ops = []
-            for arg in arg_list:
-                type = arg[1]
-                if type == "lit":
-                    op = ConstantOp(
-                        attributes={"value": StringAttr(arg[0])},
-                        result_types=[cobol_string(len(arg[0]))],
+            first_name = arg_list[0][0]
+            upper_name = first_name.upper()
+            if upper_name in screen_registry:
+                for item in screen_registry[upper_name]:
+                    val = item["value"]
+                    line = item.get("line")
+                    column = item.get("column")
+                    full_str = f"line={line}, col={column}, value ={val}"
+                    const_op = ConstantOp(
+                        attributes={"value": StringAttr(full_str)},
+                        result_types=[cobol_string(len(full_str))],
                     )
-                    body.add_op(op)
-                    ops.append(op.result)
-                else:
-                    var = symbol_table[arg[0]]
-                    ops.append(var["result"])
-            disp_op = DisplayOp(operands=[ops])
-            body.add_op(disp_op)
-            continue
+                    body.add_op(const_op)
+                    ops.append(const_op.result)
 
+                disp_op = DisplayOp(operands=[ops])
+                body.add_op(disp_op)
+                continue
         elif operation.get("DIV"):
             vars = operation.get("DIV")
             lhs = symbol_table[vars[0]]["result"]
