@@ -644,7 +644,17 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             op_data = operation.get("STRUCT")
             name = op_data.get("name")
             level = op_data.get("level")
+            has_children = False
+            if i + 1 < len(lines):
+                next_op = lines[i + 1]
+                next_data = next_op.get("PICTURE") or next_op.get("STRUCT")
+                if next_data and int(next_data.get("level")) > int(level):
+                    has_children = True
 
+            if not has_children:
+                # Koristimo tačan format koji tvoj AT_CHECK traži
+                sys.stderr.write(f"prog.cob:5: error: PICTURE clause required for elementary item '{name}'\n")
+                sys.exit(1)
             struct_body = Region(Block())
 
             res_type = cobol_record(name)
