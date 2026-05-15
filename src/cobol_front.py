@@ -329,6 +329,36 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             op = AcceptOp(operands=[target])
             body.add_op(op)
             continue
+        elif operation.get("INITIALIZE"):
+            var_name = operation.get("INITIALIZE")
+            
+            if var_name not in symbol_table:
+                sys.stderr.write(f"error: identifier '{var_name}' undefined\n")
+                sys.exit(1)
+            var_info = symbol_table[var_name]
+            dst = var_info["result"]
+            value = var_info["value"]
+            
+            if isinstance(value, int | float):
+                const_zero = ConstantOp(
+                    attributes={"value": IntegerAttr(0, 32)}, 
+                    result_types=[cobol_decimal(1, 0)]
+                )
+                body.add_op(const_zero)
+                body.add_op(MoveOp(operands=[const_zero.result, dst]))
+            
+            else:
+                length = var_info.get("length", 1)
+                spaces = " " * length
+
+                const_space = ConstantOp(
+                    attributes={"value": StringAttr.get(spaces)}, 
+                    result_types=[cobol_string(length)]
+                )
+                body.add_op(const_space)
+                body.add_op(MoveOp(operands=[const_space.result, dst]))
+            
+            continue
 
         elif operation.get("ADD"):
             vars = operation.get("ADD")

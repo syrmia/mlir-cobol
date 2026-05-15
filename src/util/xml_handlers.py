@@ -435,6 +435,13 @@ def handle_subtractStatement(elem):
     # first one: arg, second one: arg & res
     return {"SUB": idents}
 
+def handle_initializeStatement(elem):
+    var = extractText(elem, "cobolWord")
+    if not var:
+        ident = elem.find(".//identifier")
+        var = "".join(t.text for t in ident.findall(".//t") if t.text).strip()
+    
+    return {"INITIALIZE": var}
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Handlers dictionary
@@ -457,4 +464,5 @@ Handlers = {
     "setStatement": handle_setStatement,
     "stopStatement": handle_stopStatement,
     "subtractStatement": handle_subtractStatement,
+    "initializeStatement": handle_initializeStatement,
 }
