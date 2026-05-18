@@ -181,12 +181,24 @@ def handle_dataDescriptionEntry(elem):
         else (
             "alnum"
             if pictureString.startswith("X")
-            else "float" if "V" in pictureString else "int"
+            else (
+                "float" 
+                if "V" in pictureString 
+                else (
+                    "int" 
+                    if pictureString.startswith("9")
+                    else(
+                        "national"
+                        if pictureString.startswith("N")
+                        else "blanco" if pictureString.startswith("B") else "unknown"
+                    )
+                )
+            )
         )
     )
     hasDef = pictureString.find("(") != -1
     if hasDef:
-        if type == "int" or type == "alpha" or type == "alnum":
+        if type == "int" or type == "alpha" or type == "alnum" or type == "national":
             length = int(pictureString.split("(")[1].split(")")[0])
         elif type == "float":
             int_part = int(pictureString.split("9(")[1].split(")")[0])
