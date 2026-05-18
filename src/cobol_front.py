@@ -600,7 +600,7 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
                         decl_value = IntegerAttr(literal, width)
                         break
                 res_type = cobol_decimal(length, 0)
-            elif type == "alpha" or type == "alnum":
+            elif type == "alpha" or type == "alnum"or type == "blanco":
                 decl_value = StringAttr(literal)
                 res_type = cobol_string(length)
             elif type == "float":
@@ -608,6 +608,13 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
                 float_type = get_float_type(total_digits)
                 decl_value = FloatAttr(literal, float_type)
                 res_type = cobol_decimal(int_part, frac_part)
+            elif type == "national":
+                length = 2 * length
+                for width in (8, 16, 32, 64):
+                    if 10**length < 2**(width-1):
+                        decl_value = IntegerAttr(literal, width)
+                        break
+                res_type = cobol_decimal(length, 0)
             else:
                 # unknown type
                 pass
