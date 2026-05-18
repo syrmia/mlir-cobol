@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from xdsl.context import Context
-from xdsl.dialects import builtin
+from xdsl.dialects import builtin, func
 from xdsl.dialects.scf import IfOp, YieldOp
 from xdsl.dialects.builtin import (
     Block,
@@ -305,11 +305,14 @@ def process_expression(body, expression):
 
 # dictionary for declared and/or defined vars
 # var_name: { value, result }
+declared_callees: set[str] = set()
+def declare_callee_if_needed(module, name: str):
+    if name in declared_callees:
+        return
+    declared_callees.add(name)
 symbol_table = {}
-
-
 # def process_statements(body: Block, lines: any, first_run: bool, module_ops: any = None) -> ModuleOp:
-def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
+def process_statements(body: Block, lines: any, first_run: bool, module_ops: Block = None) -> ModuleOp:
     start = 1 if first_run else 0
 
     # for group item declarations
@@ -336,6 +339,16 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             rhs = symbol_table[vars[1]]["result"]
             res_type = symbol_table[vars[1]]["result"].type
             op = AddOp(operands={lhs, rhs}, result_types=[res_type], properties={"kind": StringAttr("add_to")})
+            body.add_op(op)
+            continue
+        elif operation.get("CALL"):
+            info = operation.get("CALL")
+            name = info["name"]
+            args = info["args"]
+            declare_callee_if_needed(module_ops, name)
+            arguments: list = []      
+            return_types: list = []   
+            op = func.CallOp(name, arguments, return_types)
             body.add_op(op)
             continue
 
@@ -388,12 +401,12 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
                 return_types=[],
             )
             then_block = ifOp.true_region.block
-            process_statements(then_block, data["then"], False)
+            process_statements(then_block, data["then"], False, module_ops)
             then_block.add_op(YieldOp())
 
             if else_region:
                 else_block = ifOp.false_region.block
-                process_statements(else_block, data["else"], False)
+                process_statements(else_block, data["else"], False, module_ops)
                 else_block.add_op(YieldOp())
 
             body.add_op(ifOp)
@@ -423,7 +436,7 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             # Build the loop body region
             loop_region = Region(Block())
             loop_block = loop_region.block
-            process_statements(loop_block, loop_body_stmts, False)
+            process_statements(loop_block, loop_body_stmts, False, module_ops)
 
             perform_op = PerformOp(
                 operands=[times_result],
@@ -447,7 +460,7 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
 
                 if case["other"]:
                     # WHEN OTHER — just emit the statements directly
-                    process_statements(target_body, case["stmts"], False)
+                    process_statements(target_body, case["stmts"], False, module_ops)
                     return
 
                 # Create comparison: subject == value
@@ -485,7 +498,7 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
                 # Build then region
                 then_region = Region(Block())
                 then_block = then_region.block
-                process_statements(then_block, case["stmts"], False)
+                process_statements(then_block, case["stmts"], False, module_ops)
                 then_block.add_op(YieldOp())
 
                 # Build else region with remaining cases (recursive)
@@ -664,7 +677,10 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
                 struct_regions_stack[-1][1].block.add_op(structOp)
             else:
                 # module_ops.append(structOp)
-                body.add_op(structOp)
+                if module_ops.first_op is not None:
+                    module_ops.insert_op_before(structOp, module_ops.first_op)
+                else:
+                    module_ops.add_op(structOp)
 
             symbol_table[name] = {"value": None, "result": structOp.result}
             struct_regions_stack.append([op_data.get("level"), struct_body])
@@ -689,28 +705,39 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
 
 
 def emit_cobol_dialect(lines):
+    all_programs = []
+    current = []
+
+    for stmt in lines:
+        if "PROGRAM-ID" in stmt:
+            if current:
+                all_programs.append(current)
+                current = []
+        current.append(stmt)
+    if current:
+        all_programs.append(current)
     ctx = Context()
     ctx.register_dialect("builtin", lambda c: builtin.Builtin(c))
     ctx.register_dialect("cobol", lambda c: COBOL)
-
-    # program-id should always be the first
-    prog_id = lines[0]["PROGRAM-ID"]
-
     module = ModuleOp([])
-    fun = FunctionOp(
-        attributes={
-            "sym_name": StringAttr(prog_id),
-            "function_type": FunctionType.from_lists([], []),
-        },
-        regions=[builtin.Region(builtin.Block())],
-    )
-    body = fun.body.block
-    module.body.block.add_op(fun)
+    # program-id should always be the first
+    for prog_lines in all_programs:
+        prog_id = prog_lines[0]["PROGRAM-ID"]
 
+        fun = FunctionOp(
+            attributes={
+                "sym_name": StringAttr(prog_id),
+                "function_type": FunctionType.from_lists([], []),
+            },
+            regions=[builtin.Region(builtin.Block())],
+        )
+        body = fun.body.block
     # For top-lvl declarations: structs and functions
     # module_ops = []
 
-    process_statements(body, lines, True)
+        declared_callees.clear()
+        process_statements(body, prog_lines, True, module.body.block)
+        module.body.block.add_op(fun)
     # process_statements(body, lines, True, module_ops)
 
     # module_ops.append(fun)
