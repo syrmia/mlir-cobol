@@ -309,7 +309,25 @@ symbol_table = {}
 
 
 # def process_statements(body: Block, lines: any, first_run: bool, module_ops: any = None) -> ModuleOp:
-def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
+def process_statements(
+    body: Block,
+    lines: any,
+    first_run: bool,
+    symbol_table: dict,
+    defined_paragraphs: set,
+    defined_sections: set,
+    defined_paragraphs1: set,
+    module_ops: Block = None,
+) -> ModuleOp:
+    for op in lines:
+        if not op:
+            continue
+        p_name = op.get("PARAGRAPH")
+        if p_name:
+            defined_paragraphs.add(p_name)
+        s_name = op.get("SECTION")
+        if s_name:
+            defined_sections.add(s_name)
     start = 1 if first_run else 0
 
     # for group item declarations
@@ -329,7 +347,14 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             op = AcceptOp(operands=[target])
             body.add_op(op)
             continue
-
+        
+        elif operation.get("SECTION"):
+            sec_name = operation.get("SECTION")
+            if sec_name in defined_sections or sec_name in defined_paragraphs:
+                sys.stderr.write(f"SECTION error: redefinition of '{sec_name}'\n")
+                sys.exit(0)
+            defined_sections.add(sec_name)
+            continue
         elif operation.get("ADD"):
             vars = operation.get("ADD")
             lhs = symbol_table[vars[0]]["result"]
@@ -515,6 +540,13 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
 
         elif operation.get("PARAGRAPH"):
             para_name = operation.get("PARAGRAPH")
+            if (
+                para_name in symbol_table
+                or para_name in defined_sections
+                or para_name in defined_paragraphs1
+            ):
+                sys.stderr.write(f"PARAGRAF error: redefinition of '{para_name}'\n")
+                sys.exit(0)
             if para_name == "Main-Process":
                 continue
             para_region = Region(Block())
@@ -580,10 +612,18 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             length = data.get("length")
             level = int(data.get("level"))
 
+            if name in symbol_table:
+                sys.stderr.write(f"PICTURE error: redefinition of '{name}'\n")
+                sys.exit(0)
             # for floats:
             int_part = data.get("int_part")
             frac_part = data.get("frac_part")
 
+            if struct_regions_stack:
+                parent_name = struct_regions_stack[-1][2]
+                full_name = f"{parent_name}.{name}"
+            else:
+                full_name = name
             def get_float_type(digits: int) -> int:
                 if digits <= 4:
                     return 16
@@ -628,7 +668,7 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
                 body.add_op(declOp)
 
             if literal:
-                symbol_table[name] = {
+                symbol_table[full_name] = {
                     "value": (
                         literal.strip("'")
                         if not isinstance(literal, int | float)
@@ -637,7 +677,7 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
                     "result": declOp.result,
                 }
             else:
-                symbol_table[name] = {"value": None, "result": declOp.result}
+                symbol_table[full_name] = {"value": None, "result": declOp.result}
             continue
 
         elif operation.get("STRUCT"):
@@ -664,10 +704,13 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
                 struct_regions_stack[-1][1].block.add_op(structOp)
             else:
                 # module_ops.append(structOp)
-                body.add_op(structOp)
+                if module_ops.first_op is not None:
+                    module_ops.insert_op_before(structOp, module_ops.first_op)
+                else:
+                    module_ops.add_op(structOp)
 
             symbol_table[name] = {"value": None, "result": structOp.result}
-            struct_regions_stack.append([op_data.get("level"), struct_body])
+            struct_regions_stack.append([level, struct_body, name])
             continue
 
         elif operation.get("STOP"):
@@ -710,7 +753,20 @@ def emit_cobol_dialect(lines):
     # For top-lvl declarations: structs and functions
     # module_ops = []
 
-    process_statements(body, lines, True)
+    symbol_table = {}
+    defined_paragraphs = set()
+    defined_sections = set()
+    defined_paragraphs1 = set()
+    process_statements(
+        body,
+        lines,
+        True,
+        symbol_table,
+        defined_paragraphs,
+        defined_sections,
+        defined_paragraphs1,
+        module.body.block,
+    )
     # process_statements(body, lines, True, module_ops)
 
     # module_ops.append(fun)

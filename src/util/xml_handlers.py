@@ -281,6 +281,9 @@ def handle_moveStatement(elem):
 
     return {"MOVE": [var_name, value]}
 
+def handle_section(elem):
+    name = extractText(elem, "sectionName")
+    return {"SECTION": name}
 
 def handle_multiplyStatement(elem):
     idents = extractVarNames(elem, "identifier")
@@ -457,4 +460,5 @@ Handlers = {
     "setStatement": handle_setStatement,
     "stopStatement": handle_stopStatement,
     "subtractStatement": handle_subtractStatement,
+    "section": handle_section
 }
