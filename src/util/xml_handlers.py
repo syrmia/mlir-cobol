@@ -420,7 +420,6 @@ def handle_programIdParagraph(elem):
 
 def handle_setStatement(elem):
     var = extractText(elem, "cobolWord")
-    # dodati u zavisnosti od tipa vrednosti.... tag za bool vrednosti je <true>
     val = extractText(elem, "true")
     return {"SET": [var, val]}
 
@@ -436,6 +435,13 @@ def handle_subtractStatement(elem):
     return {"SUB": idents}
 
 
+def handle_callStatement(elem):
+    literal = elem.find(".//alphanumericLiteral/t")
+    if literal is None or literal.text is None:
+        raise ValueError("CALL without literal program name not supported yet")
+    name = literal.text.strip().strip('"')
+    args = []
+    return {"CALL": {"name": name, "args": args}}
 # ─────────────────────────────────────────────────────────────────────────────
 #  Handlers dictionary
 # ─────────────────────────────────────────────────────────────────────────────
@@ -457,4 +463,5 @@ Handlers = {
     "setStatement": handle_setStatement,
     "stopStatement": handle_stopStatement,
     "subtractStatement": handle_subtractStatement,
+    "callStatement": handle_callStatement
 }
