@@ -229,16 +229,19 @@ def handle_displayStatement(elem):
     value along with its type: 'var' for identifiers or 'lit' for literals.
     """
     args = []
-    literals_raw = extractText(elem, "alphanumericLiteral")
-    idents = extractVarNames(elem, "identifier")
+    for child in elem.iter():
+        tag = child.tag.lower()
 
-    literals = [s for _, s in re.findall(r"""(['"])(.*?)\1""", literals_raw)]
+        if tag.endswith("alphanumericliteral"):
+            raw = "".join(child.itertext())
+            m = re.match(r"""(['"])(.*)\1""", raw.strip())
+            if m:
+                args.append([m.group(2), "lit"])
 
-    for l in literals:
-        args.append([l, "lit"])
-
-    for i in idents:
-        args.append([i, "var"])
+        elif tag.endswith("identifier"):
+            name = "".join(child.itertext()).strip()
+            if name:
+                args.append([name, "var"])
 
     return {"DISPLAY": args}
 

@@ -9,4 +9,5 @@
        Main-Process.
            DISPLAY 'Name: ' WS-NAME.
            DISPLAY 'Age: ' WS-AGE.
+           MULTIPLY WS-AGE BY WS-AGE.
            STOP RUN.
