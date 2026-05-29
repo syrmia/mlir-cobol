@@ -579,7 +579,7 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             type = data.get("type")
             length = data.get("length")
             level = int(data.get("level"))
-
+            external = data.get("is_external")
             # for floats:
             int_part = data.get("int_part")
             frac_part = data.get("frac_part")
@@ -613,7 +613,7 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
                 pass
 
             declOp = DeclareOp(
-                attributes={"value": decl_value, "level": IntegerAttr(int(level), 8)},
+                attributes={"value": decl_value, "level": IntegerAttr(int(level), 8), "external":  IntegerAttr(1 if external else 0, 1)},
                 result_types=[res_type],
             )
 
@@ -635,9 +635,10 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
                         else literal
                     ),
                     "result": declOp.result,
+                    "external": external
                 }
             else:
-                symbol_table[name] = {"value": None, "result": declOp.result}
+                symbol_table[name] = {"value": None, "result": declOp.result, "external": external}
             continue
 
         elif operation.get("STRUCT"):
