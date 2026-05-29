@@ -1,0 +1,14 @@
+# Test: GO TO with paragraphs: from COBOL to C++
+# REQUIRES: koopa, mlir-translate
+# RUN: %cobol-translate %S/../examples/display_screen_section_strings_and_number.cbl --emit=emitc -o %S/Output/display_screen_section_strings_and_number.mlir && \
+# RUN: %mlir-translate --mlir-to-cpp %S/Output/display_screen_section_strings_and_number.mlir | FileCheck %s
+
+
+#CHECK: #include <iostream>
+#CHECK: void screen_mixed() {
+#CHECK:  std::string v1 = "line=1, col=5, value ="TITLE". ";
+#CHECK:  std::string v2 = "line=2, col=10, value =90. ";
+#CHECK:  std::string v3 = "line=3, col=1, value ="END". ";
+#CHECK:  std::cout << v1 << v2 << v3;
+#CHECK:  return;
+#CHECK: }

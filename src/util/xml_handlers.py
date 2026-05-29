@@ -435,6 +435,56 @@ def handle_subtractStatement(elem):
     # first one: arg, second one: arg & res
     return {"SUB": idents}
 
+def handle_sectionHeader(elem):
+    name_node = elem.find(".//header")
+    raw = "".join(t.text for t in name_node.findall(".//t") if t.text)
+    name = raw.replace("SECTION", "").replace(".", "").strip()
+    section_dict = {"SECTION": name.upper()}
+    if name.upper() == "SCREEN":
+        section_dict["IS_SCREEN_SECTION"] = True
+    return section_dict
+
+def handle_screenDescriptionEntry(elem):
+    level = None
+    level_node = elem.find("./levelNumber")
+    if level_node is not None:
+        ts = [t.text for t in level_node.findall(".//t") if t.text]
+        level = "".join(ts) if ts else None
+    name = None
+    name_node = elem.find("./screenName")
+    if name_node is not None:
+        ts = [t.text for t in name_node.findall(".//t") if t.text]
+        name = "".join(ts) if ts else None
+    line = None
+    line_int_node = elem.find("./lineClause/integer")
+    if line_int_node is not None:
+        ts = [t.text for t in line_int_node.findall(".//t") if t.text]
+        line = "".join(ts) if ts else None
+    column = None
+    col_int_node = elem.find("./columnClause/integer")
+    if col_int_node is not None:
+        ts = [t.text for t in col_int_node.findall(".//t") if t.text]
+        column = "".join(ts) if ts else None
+    picture = None
+    pic_node = elem.find("./pictureClause/pictureString")
+    if pic_node is not None:
+        ts = [t.text for t in pic_node.findall(".//t") if t.text]
+        picture = "".join(ts) if ts else None
+    value = None
+    val_node = elem.find("./screenValueClause/literal/literalValue")
+    if val_node is not None:
+        ts = [t.text for t in val_node.findall(".//t") if t.text]
+        value = "".join(ts) if ts else None
+    return {
+        "SCREEN_ENTRY":{
+        "level": level,
+        "name": name,
+        "line": line,
+        "column": column,
+        "picture": picture,
+        "value": value}
+    }
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Handlers dictionary
@@ -457,4 +507,7 @@ Handlers = {
     "setStatement": handle_setStatement,
     "stopStatement": handle_stopStatement,
     "subtractStatement": handle_subtractStatement,
+    "screenSection": handle_sectionHeader,
+    "screenDescriptionEntry": handle_screenDescriptionEntry
+
 }
