@@ -1,0 +1,5 @@
+# Test: GO TO with paragraphs: from COBOL to C++
+# REQUIRES: koopa, mlir-translate
+# RUN: %cobol-translate %S/../examples/missing_pic_clause.cbl --emit=emitc -o %S/Output/gnu6.mlir
+
+# CHECK: error: PICTURE clause required for elementary item 'X'
