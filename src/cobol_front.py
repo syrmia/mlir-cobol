@@ -75,6 +75,14 @@ def cobol_decimal(d: int, s: int = 0):
 def cobol_record(name: str):
     return CobolRecordType(StringAttr(name))
 
+def count_9(part):
+    if isinstance(part, int):
+        return part
+    if "(" in part and ")" in part:
+        n = int(part[part.find("(") + 1: part.find(")")])
+    else:
+        n = len(part)
+    return n
 
 def run_koopa(src):
     koopa_path = os.environ.get("KOOPA_PATH", "")
@@ -584,17 +592,26 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             int_part = data.get("int_part")
             frac_part = data.get("frac_part")
 
-            def get_float_type(digits: int) -> int:
-                if digits <= 4:
-                    return 16
-                if digits <= 7:
-                    return 32
-                return 64
-
-            if not literal:
-                literal = 0 if type == "int" or type == "float" else ""
-
+            if int_part is None:
+                int_part = 0
+            if frac_part is None:
+                frac_part = 0
+            if length is None:
+                length = int_part
+            if literal is None or (isinstance(literal, str) and literal.strip() == ""):
+                if type == "int":
+                    literal = 0
+                elif type == "float":
+                    literal = 0.0    
+                else:
+                    literal = ""
             if type == "int":
+                if not isinstance(literal, int):
+                    try:
+                        literal = int(literal)
+                    except (ValueError, TypeError) as e:
+                        raise ValueError(f"Invalid integer literal: {literal!r}") from e
+
                 for width in (8, 16, 32, 64):
                     if 10**length < 2**(width-1):
                         decl_value = IntegerAttr(literal, width)
@@ -604,9 +621,15 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
                 decl_value = StringAttr(literal)
                 res_type = cobol_string(length)
             elif type == "float":
-                total_digits = int_part + frac_part
-                float_type = get_float_type(total_digits)
-                decl_value = FloatAttr(literal, float_type)
+                float_width = 64   # double
+                try:
+                    f_val = float(literal)
+                except (ValueError, TypeError) as e:
+                    raise ValueError(f"Invalid float literal: {literal!r}") from e
+                decl_value = FloatAttr(f_val, float_width)
+                int_part = count_9(int_part)    # '9(6)' -> 6
+                frac_part = count_9(frac_part)  # '9(2)' -> 2
+                length = int_part + frac_part 
                 res_type = cobol_decimal(int_part, frac_part)
             else:
                 # unknown type
