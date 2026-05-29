@@ -351,6 +351,7 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
         elif operation.get("DISPLAY"):
             arg_list = operation.get("DISPLAY")
             ops = []
+            attrs = {}
             for arg in arg_list:
                 type = arg[1]
                 if type == "lit":
@@ -361,9 +362,18 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
                     body.add_op(op)
                     ops.append(op.result)
                 else:
-                    var = symbol_table[arg[0]]
-                    ops.append(var["result"])
-            disp_op = DisplayOp(operands=[ops])
+                    var_name = arg[0]
+                    var = symbol_table[var_name]
+                    value = var["result"]
+                    if len(arg) == 2:
+                        ops.append(value)
+                    else:
+                        start = arg[2]
+                        length = arg[3]
+                        ops.append(value)
+                        attrs["start"] = IntegerAttr.from_int_and_width(start, 32)
+                        attrs["length"] = IntegerAttr.from_int_and_width(length, 32)
+            disp_op = DisplayOp(operands=[ops], attributes=attrs)
             body.add_op(disp_op)
             continue
 

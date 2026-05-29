@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-from xdsl.dialects.builtin import FunctionType, IntegerAttr, StringAttr
+from xdsl.dialects.builtin import FunctionType, IntegerAttr, StringAttr, IntAttr
 from xdsl.ir import Dialect, TypeAttribute
 from xdsl.irdl import (
     irdl_attr_definition,
@@ -13,6 +13,7 @@ from xdsl.irdl import (
     region_def,
     result_def,
     var_operand_def,
+    opt_attr_def
 )
 
 
@@ -115,6 +116,8 @@ class DeclareOp(IRDLOperation):
 class DisplayOp(IRDLOperation):
     name = "cobol.display"
     args = var_operand_def()
+    start = opt_attr_def(IntAttr)
+    length = opt_attr_def(IntAttr)
 
 
 @irdl_op_definition

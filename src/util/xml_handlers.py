@@ -230,15 +230,36 @@ def handle_displayStatement(elem):
     """
     args = []
     literals_raw = extractText(elem, "alphanumericLiteral")
-    idents = extractVarNames(elem, "identifier")
+
 
     literals = [s for _, s in re.findall(r"""(['"])(.*?)\1""", literals_raw)]
 
     for l in literals:
         args.append([l, "lit"])
 
-    for i in idents:
-        args.append([i, "var"])
+    for ident in elem.findall(".//identifier"):
+        cw = ident.find(".//qualifiedDataName//dataName//cobolWord")
+        if cw is None:
+            cw = ident.find(".//cobolWord")
+        if cw is None:
+            continue
+        var_name = "".join(t.text for t in cw.findall("t") if t.text)
+        ref_mod = ident.find(".//referenceModifier")
+        if ref_mod is None:
+            args.append([var_name, "var"])
+            continue
+        ints = []
+        for il in ref_mod.findall(".//integerLiteral"):
+            txt = "".join(t.text for t in il.findall("t") if t.text)
+            if txt:
+                ints.append(int(txt))
+
+        if not ints:
+            args.append([var_name, "var"])
+        else:
+            start = ints[0]
+            length = ints[1] if len(ints) > 1 else None
+            args.append([var_name, "var", start, length])
 
     return {"DISPLAY": args}
 
