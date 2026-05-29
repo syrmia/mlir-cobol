@@ -5,6 +5,8 @@ by their corresponding handlers, which return a structure representing the
 statement and its associated data.
 """
 
+
+# fmt: off
 import re
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -434,8 +436,17 @@ def handle_subtractStatement(elem):
     idents = extractVarNames(elem, "identifier")
     # first one: arg, second one: arg & res
     return {"SUB": idents}
+# fmt: on
+def handle_initializeStatement(elem):
+    var = extractText(elem, "cobolWord")
+    if not var:
+        ident = elem.find(".//identifier")
+        var = "".join(t.text for t in ident.findall(".//t") if t.text).strip()
+
+    return {"INITIALIZE": var}
 
 
+# fmt: off
 # ─────────────────────────────────────────────────────────────────────────────
 #  Handlers dictionary
 # ─────────────────────────────────────────────────────────────────────────────
@@ -457,4 +468,5 @@ Handlers = {
     "setStatement": handle_setStatement,
     "stopStatement": handle_stopStatement,
     "subtractStatement": handle_subtractStatement,
+    "initializeStatement": handle_initializeStatement,
 }
