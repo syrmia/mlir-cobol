@@ -94,7 +94,8 @@ def run_koopa(src):
             "--free-format",
             src,
             "test/Output/build_xml/" + os.path.splitext(src.name)[0] + ".xml",
-        ]
+        ],
+        capture_output=True
     )
 
 
@@ -351,19 +352,28 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
         elif operation.get("DISPLAY"):
             arg_list = operation.get("DISPLAY")
             ops = []
+            index = None
             for arg in arg_list:
                 type = arg[1]
+                index = arg[2] if len(arg) > 2 else None
+
                 if type == "lit":
-                    op = ConstantOp(
+                    const_op = ConstantOp(
                         attributes={"value": StringAttr(arg[0])},
                         result_types=[cobol_string(len(arg[0]))],
                     )
-                    body.add_op(op)
-                    ops.append(op.result)
+                    body.add_op(const_op)
+                    ops.append(const_op.result)
                 else:
                     var = symbol_table[arg[0]]
                     ops.append(var["result"])
-            disp_op = DisplayOp(operands=[ops])
+
+            attrs = {}
+            if index is not None:
+                idx_int = int(index)
+                attrs["index"] = IntegerAttr.from_int_and_width(idx_int, 32)
+
+            disp_op = DisplayOp(operands=ops, attributes=attrs)
             body.add_op(disp_op)
             continue
 
@@ -526,10 +536,12 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             continue
 
         elif operation.get("MOVE"):
-            data = operation.get("MOVE")
+            data = operation["MOVE"]
 
-            data_dst = data[0]
-            data_src = data[1]
+            data_dst = data["dst"]         
+            data_dst_index = data["dst_index"]  
+            data_src = data["src"]
+            src_is_literal = data["src_is_literal"]
 
             if isinstance(data_src, int):
                 for width in (8, 16, 32, 64):
@@ -538,13 +550,13 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
                         break
                 res = cobol_decimal(len(str(data_src)), 0)
 
-            elif data_src in symbol_table:
+            elif not src_is_literal and data_src in symbol_table:
                 symbol_table[data_dst]["value"] = data_src
                 sym_value = symbol_table[data_src]["value"]
 
                 if isinstance(sym_value, int):
                     for width in (8, 16, 32, 64):
-                        if sym_value< 2**(width-1):
+                        if sym_value < 2**(width - 1):
                             value = IntegerAttr(sym_value, width)
                             break
                     res = cobol_decimal(len(str(sym_value)), 0)
@@ -552,15 +564,39 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
                     value = StringAttr(sym_value)
                     res = cobol_string(len(sym_value))
 
-            else:  # type[src] = string
+            else:  
                 value = StringAttr(data_src)
                 res = cobol_string(len(data_src))
 
             constOp = ConstantOp(attributes={"value": value}, result_types=[res])
             body.add_op(constOp)
             src = constOp.result
-            dst = symbol_table[data_dst]["result"]
-            body.add_op(MoveOp(operands=[src, dst]))
+            if data_dst_index is not None:
+                idx = data_dst_index - 1
+                if "value" not in symbol_table[data_dst] or not isinstance(symbol_table[data_dst]["value"], list):
+                    symbol_table[data_dst]["value"] = []
+                arr = symbol_table[data_dst]["value"]
+
+                if idx >= len(arr):
+                    arr.extend([None] * (idx + 1 - len(arr)))
+
+                if isinstance(data_src, int):
+                    arr[idx] = data_src
+                elif not src_is_literal and data_src in symbol_table:
+                    arr[idx] = symbol_table[data_src]["value"]
+                else:
+                    arr[idx] = data_src
+                dst = symbol_table[data_dst]["result"]
+            else:
+                dst = symbol_table[data_dst]["result"]
+                if isinstance(data_src, int):
+                    symbol_table[data_dst]["value"] = data_src
+                elif not src_is_literal and data_src in symbol_table:
+                    symbol_table[data_dst]["value"] = symbol_table[data_src]["value"]
+                else:
+                    symbol_table[data_dst]["value"] = data_src
+            idx_attr = IntegerAttr(data_dst_index, 32)
+            body.add_op(MoveOp(operands=[src, dst], attributes={"index": idx_attr}))
             continue
 
         elif operation.get("MUL"):
@@ -579,8 +615,10 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             type = data.get("type")
             length = data.get("length")
             level = int(data.get("level"))
-
-            # for floats:
+            occurs = data.get("occurs")
+            if occurs is None:
+                occurs = 1
+            occurs = int(occurs)
             int_part = data.get("int_part")
             frac_part = data.get("frac_part")
 
@@ -613,7 +651,7 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
                 pass
 
             declOp = DeclareOp(
-                attributes={"value": decl_value, "level": IntegerAttr(int(level), 8)},
+                attributes={"name": StringAttr(name), "value": decl_value, "level": IntegerAttr(int(level), 8), "occurs": IntegerAttr(occurs, 32), "elem_len": IntegerAttr(length, 32)},
                 result_types=[res_type],
             )
 
@@ -637,7 +675,7 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
                     "result": declOp.result,
                 }
             else:
-                symbol_table[name] = {"value": None, "result": declOp.result}
+                symbol_table[name] = {"value": None, "result": declOp.result, "occurs": occurs, "elem_length": length}
             continue
 
         elif operation.get("STRUCT"):
