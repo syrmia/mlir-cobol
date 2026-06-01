@@ -1,0 +1,32 @@
+# Test: GO TO with paragraphs: from COBOL to C++
+# REQUIRES: koopa, mlir-translate
+# RUN: /home/tamara/mlir-cobol/venv/bin/cobol-translate %S/../examples/occurs_move_and_display_some_elements.cbl --emit=memref > %S/Output/occurs_move_and_display_some_elements.mlir && \
+# RUN: /home/tamara/mlir-cobol/venv/bin/mlir-opt -convert-memref-to-emitc %S/Output/occurs_move_and_display_some_elements.mlir > %S/Output/occurs_move_and_display_some_elements_emitc.mlir && \
+# RUN: /home/tamara/mlir-cobol/venv/bin/mlir-translate --mlir-to-cpp %S/Output/occurs_move_and_display_some_elements_emitc.mlir | FileCheck %s
+# CHECK: #include <stdlib.h>
+# CHECK: #include <iostream>
+# CHECK: void prog() {
+# CHECK:   size_t v1 = sizeof(int8_t);
+# CHECK:   size_t v2 = 10;
+# CHECK:   size_t v3 = v1 * v2;
+# CHECK:   void* v4 = malloc(v3);
+# CHECK:   int8_t* v5 = (int8_t*) v4;
+# CHECK:   int8_t v6 = 1;
+# CHECK:   size_t v7 = 1;
+# CHECK:   v5[v7] = v6;
+# CHECK:   int8_t v8 = 5;
+# CHECK:   size_t v9 = 2;
+# CHECK:   v5[v9] = v8;
+# CHECK:   size_t v10 = 1;
+# CHECK:   int8_t v11 = v5[v10];
+# CHECK:   std::cout << v11;
+# CHECK:   size_t v12 = 2;
+# CHECK:   int8_t v13 = v5[v12];
+# CHECK:   std::cout << v13;
+# CHECK:   return;
+# CHECK: }
+
+
+
+
+

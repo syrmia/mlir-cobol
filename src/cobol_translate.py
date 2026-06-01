@@ -10,6 +10,7 @@ from pathlib import Path
 
 from cobol_front import run_koopa, read_xml, emit_cobol_dialect
 from emitc_lowering import lower_to_emitc
+from memref_lowering import lower_to_memref
 
 
 def check_koopa():
@@ -45,7 +46,7 @@ def main():
     )
     parser.add_argument(
         '--emit',
-        choices=['cobol-mlir', 'emitc', 'llvm-mlir'],
+        choices=['cobol-mlir', 'emitc', 'llvm-mlir', 'memref'],
         default='cobol-mlir',
         help='Output format (default: cobol-mlir)'
     )
@@ -82,6 +83,11 @@ def main():
         if result is None:
             sys.exit(1)
         output = str(result)
+    elif args.emit == "memref":
+        lower_to_memref(module)
+        lower_to_emitc(module)
+        print(module)
+        return
     elif args.emit == 'llvm-mlir':
         sys.exit("Error: --emit=llvm-mlir not yet implemented")
 

@@ -239,50 +239,83 @@ class ConvertConstantOp(RewritePattern):
 class ConvertDeclareOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: DeclareOp, rewriter: PatternRewriter):
+        name = op.attributes["name"].data
         sym_value = op.attributes["value"]
         op_res_type = op.result.type
-
+        occurs = op.attributes["occurs"]
+        occurs = occurs.value.data
         # print("sym_name ", sym_value)
         # print("op res type ", op_res_type)
-
-        if isinstance(op_res_type, IntegerType):
-            var_op = EmitC_VariableOp(
-                EmitC_OpaqueAttr(StringAttr(str(sym_value.value.data))),
-                EmitC_LValueType(op_res_type),
-            )
-            rewriter.replace_op(op, var_op)
-
-        elif isinstance(op_res_type, AnyFloat):
-            # print("Float je")
-            var_op = EmitC_VariableOp(
-                EmitC_OpaqueAttr(StringAttr(str(sym_value.value.data))),
-                EmitC_LValueType(op_res_type),
-            )
-            rewriter.replace_op(op, var_op)
-
-        elif isinstance(op_res_type, EmitC_LValueType):
-            # either std::string or custom user type (struct/class)
-            opaque_type = op_res_type.value_type.value.data
-
-            if opaque_type == "std::string":
-                # print("String je")
-                fixed_string = sym_value.data.strip('"').strip("'")
+        if occurs == 1:
+            if isinstance(op_res_type, IntegerType):
                 var_op = EmitC_VariableOp(
-                    EmitC_OpaqueAttr(StringAttr('"' + fixed_string + '"')), op_res_type
+                    EmitC_OpaqueAttr(StringAttr(str(sym_value.value.data))),
+                    EmitC_LValueType(op_res_type),
                 )
-                # print(var_op)
                 rewriter.replace_op(op, var_op)
+
+            elif isinstance(op_res_type, AnyFloat):
+                # print("Float je")
+                var_op = EmitC_VariableOp(
+                    EmitC_OpaqueAttr(StringAttr(str(sym_value.value.data))),
+                    EmitC_LValueType(op_res_type),
+                )
+                rewriter.replace_op(op, var_op)
+
+            elif isinstance(op_res_type, EmitC_LValueType):
+                # either std::string or custom user type (struct/class)
+                opaque_type = op_res_type.value_type.value.data
+
+                if opaque_type == "std::string":
+                    # print("String je")
+                    fixed_string = sym_value.data.strip('"').strip("'")
+                    var_op = EmitC_VariableOp(
+                        EmitC_OpaqueAttr(StringAttr('"' + fixed_string + '"')), op_res_type
+                    )
+                    # print(var_op)
+                    rewriter.replace_op(op, var_op)
+                else:
+                    # custom type (struct)
+                    # print("Struct je")
+                    var_op = EmitC_VariableOp(
+                        EmitC_OpaqueAttr(StringAttr(opaque_type)), op_res_type
+                    )
+                    # print(var_op)
+                    rewriter.replace_op(op, var_op)
             else:
-                # custom type (struct)
-                # print("Struct je")
-                var_op = EmitC_VariableOp(
-                    EmitC_OpaqueAttr(StringAttr(opaque_type)), op_res_type
-                )
-                # print(var_op)
-                rewriter.replace_op(op, var_op)
-        else:
-            print("Type still not supported: ", op_res_type)
+                print("Type still not supported: ", op_res_type)
 
+        else:
+            if isinstance(op_res_type, EmitC_LValueType):
+                inner_type = op_res_type.value_type
+            else:
+                inner_type = op_res_type
+
+            if isinstance(inner_type, IntegerType) and inner_type.width.data == 8:
+                elem_type_str = "int16_t"
+            elif isinstance(inner_type, EmitC_OpaqueType):
+                elem_type_str = inner_type.value.data
+            else:
+                elem_type_str = str(inner_type)
+
+            full_decl = f"{elem_type_str} {name}[{occurs}] = {{0}};"
+
+            verbatim_op = EmitC_VerbatimOp(
+                value=StringAttr(full_decl),
+                operands=[],
+            )
+
+            rewriter.insert_op(verbatim_op, InsertPoint.before(op))
+            var_op = EmitC_VariableOp(
+                value=EmitC_OpaqueAttr(StringAttr(name)),
+                result_types=[
+                    EmitC_LValueType(
+                        EmitC_OpaqueType(StringAttr(elem_type_str))
+                    )
+                ],
+            )
+            rewriter.replace_op(op, var_op)
+            return
         return
 
 
@@ -290,14 +323,16 @@ class ConvertDeclareOp(RewritePattern):
 class ConvertDisplayOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: DisplayOp, rewriter: PatternRewriter):
-        args = op.args
-        placeholders = " << ".join("{}" for a in args)
+        args = list(op.args)
+        if op.attributes['index']:
+            return
+        placeholders = " << ".join("{}" for _ in args)
         string_arg = "std::cout << " + placeholders + ";"
         verbatim_op = EmitC_VerbatimOp(
-            value=StringAttr(string_arg), operands=list(args)
+            value=StringAttr(string_arg),
+            operands=args,
         )
         rewriter.replace_op(op, verbatim_op)
-
 
 @dataclass
 class ConvertDivOp(RewritePattern):
