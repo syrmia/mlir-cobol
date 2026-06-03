@@ -25,6 +25,7 @@ from xdsl.ir import OpResult
 from xdsl.printer import Printer
 from cobol_dialect import (
     COBOL,
+    CloseFileOp,
     CobolBoolType,
     CobolDecimalType,
     CobolStringType,
@@ -44,6 +45,7 @@ from cobol_dialect import (
     MoveOp,
     MulOp,
     NotOp,
+    OpenFileOp,
     OrIOp,
     ParagraphOp,
     PerformOp,
@@ -308,10 +310,10 @@ def process_expression(body, expression):
 symbol_table = {}
 
 
-# def process_statements(body: Block, lines: any, first_run: bool, module_ops: any = None) -> ModuleOp:
-def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
+def process_statements(body: Block, lines: any, first_run: bool, module_ops: any = None) -> ModuleOp:
+#def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
     start = 1 if first_run else 0
-
+    file_registry = {} 
     # for group item declarations
     # {level, body}
     struct_regions_stack = []
@@ -663,8 +665,8 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             if struct_regions_stack:
                 struct_regions_stack[-1][1].block.add_op(structOp)
             else:
-                # module_ops.append(structOp)
-                body.add_op(structOp)
+                module_ops.append(structOp)
+                # body.add_op(structOp)
 
             symbol_table[name] = {"value": None, "result": structOp.result}
             struct_regions_stack.append([op_data.get("level"), struct_body])
@@ -682,7 +684,79 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             sub_op = SubOp(operands={lhs, rhs}, result_types=[res_type], properties={"kind": StringAttr("sub_from")})
             body.add_op(sub_op)
             continue
+        elif operation.get("FILE-SELECT"):
+            info = operation["FILE-SELECT"]
+            logical_name = info["name"]       
+            assign_path  = info["assign"]     
 
+            if logical_name not in file_registry:
+                file_registry[logical_name] = {
+                    "assign": None,
+                    "fd": None,
+                    "record": None,
+                    "fields": [],
+                    "filePtr": None,
+                }
+
+            file_registry[logical_name]["assign"] = assign_path
+
+        elif operation.get("FILE-FD"):
+            info = operation["FILE-FD"]
+            file_name = info["name"]         
+
+            if file_name not in file_registry:
+                file_registry[file_name] = {
+                    "assign": None,
+                    "fd": None,
+                    "record": None,
+                    "fields": [],
+                    "filePtr": None,
+                }
+
+            file_registry[file_name]["fd"] = file_name
+
+
+        elif operation.get("OPEN"):
+            info = operation["OPEN"]
+            mode = info["mode"]          
+            file_name = info["file"]     
+
+            if file_name in file_registry:
+                reg = file_registry[file_name]
+
+                reg["mode"] = mode
+                if reg["filePtr"] is None:
+                    reg["filePtr"] = f"{file_name}_PTR"
+
+                
+                open_op = OpenFileOp.create(
+                properties={
+                    "file_name": StringAttr(file_name),
+                    "path":      StringAttr(reg["assign"] or ""),
+                    "mode":      StringAttr(mode),
+                    "var_name":  StringAttr(reg["filePtr"]),
+                }
+            )
+
+                body.add_op(open_op)
+
+
+
+        elif operation.get("CLOSE"):
+            info = operation["CLOSE"]
+            file_name = info["file_name"]
+
+            if file_name in file_registry:
+                reg = file_registry[file_name]
+
+                close_op = CloseFileOp.create(
+                    properties={
+                        "file_name": StringAttr(file_name),
+                        "var_name":  StringAttr(reg.get("filePtr") or ""),
+                    }
+                )
+
+                body.add_op(close_op)
         else:
             print("Unknown operation: ", operation)
             break
@@ -705,18 +779,17 @@ def emit_cobol_dialect(lines):
         regions=[builtin.Region(builtin.Block())],
     )
     body = fun.body.block
-    module.body.block.add_op(fun)
 
     # For top-lvl declarations: structs and functions
-    # module_ops = []
+    module_ops = []
 
-    process_statements(body, lines, True)
-    # process_statements(body, lines, True, module_ops)
+    #process_statements(body, lines, True)
+    process_statements(body, lines, True, module_ops)
 
-    # module_ops.append(fun)
+    module_ops.append(fun)
 
-    # for op in module_ops:
-    #    module.body.block.add_op(op)
+    for op in module_ops:
+        module.body.block.add_op(op)
 
     return module
 

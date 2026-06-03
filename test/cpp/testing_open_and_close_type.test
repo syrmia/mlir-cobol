@@ -1,0 +1,21 @@
+# Test: minimal COBOL program with just STOP RUN; from COBOL to C++
+# REQUIRES: koopa, mlir-translate
+# RUN: %cobol-translate %S/../examples/testing_open_and_close_type.cbl --emit=emitc -o %S/Output/testing_open_and_close_type.mlir | \
+# RUN: %mlir-translate --mlir-to-cpp %S/Output/testing_open_and_close_type.mlir | FileCheck %s
+
+# CHECK: #include <fstream>
+# CHECK: #include <iostream>
+# CHECK: #include <string>
+# CHECK: class MYFILE_REC {
+# CHECK: public:
+# CHECK:  std::string v1 = ""
+# CHECK:  std::string v2 = ""
+# CHECK: };
+# CHECK: MYFILE_REC v3 = MYFILE_REC();
+# CHECK: void prog() {
+# CHECK:  std::string v1 = "OVO JE TEST";
+# CHECK:  std::cout << v1;
+# CHECK:  FILE *MYFILE_PTR = fopen("test.txt", "w");
+# CHECK:  fclose(MYFILE_PTR); 
+# CHECK:  return;
+# CHECK: }

@@ -15,7 +15,28 @@ from xdsl.irdl import (
     var_operand_def,
 )
 
+@irdl_attr_definition
+class CobolFileType(ParametrizedAttribute, TypeAttribute):
+    name = "cobol.file"
+    file_name: StringAttr
 
+
+@irdl_op_definition
+class OpenFileOp(IRDLOperation):
+    name = "cobol.open_file"
+
+    file_name = prop_def(StringAttr)  
+    path = prop_def(StringAttr)      
+    mode = prop_def(StringAttr)     
+    var_name = prop_def(StringAttr)  
+
+
+@irdl_op_definition
+class CloseFileOp(IRDLOperation):
+    name = "cobol.close_file"
+
+    file_name = prop_def(StringAttr)
+    var_name = prop_def(StringAttr)
 # ─────────────────────────────────────────────────────────────────────────────
 #  Type attributes
 # ─────────────────────────────────────────────────────────────────────────────
