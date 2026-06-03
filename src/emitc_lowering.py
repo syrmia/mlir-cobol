@@ -34,6 +34,8 @@ from cobol_dialect import (
     StopRunOp,
     StructOp,
     SubOp,
+    OpenFileOp,
+    CloseFileOp,
 )
 from dataclasses import dataclass
 from xdsl.context import Context
@@ -554,7 +556,8 @@ class ConvertStopOp(RewritePattern):
 class ConvertStructOp(RewritePattern):  # still to do
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: StructOp, rewriter: PatternRewriter):
-        struct_name = StringAttr(op.attributes["struct_name"].data.replace("-", "_"))
+        struct_name = StringAttr(op.attributes["struct_name"].data.replace("-", "_") )
+        struct_name1 = StringAttr(op.attributes["struct_name"].data.replace("-", "_") + "();")
 
         struct_name_ref = SymbolRefAttr(struct_name)
         new_struct_body = op.body.clone()
@@ -569,12 +572,51 @@ class ConvertStructOp(RewritePattern):  # still to do
 
         # variable instance of the struct type
         var_op = EmitC_VariableOp(
-            EmitC_OpaqueAttr(struct_name),
+            EmitC_OpaqueAttr(struct_name1),
             res_type,
         )
         rewriter.replace_op(op, var_op)
+@dataclass
+class ConvertOpenFileOp(RewritePattern):
+    @op_type_rewrite_pattern
+    def match_and_rewrite(self, op: OpenFileOp, rewriter: PatternRewriter):
+        file_name = op.properties["file_name"].data   
+        path      = op.properties["path"].data        
+        mode      = op.properties["mode"].data        
+        var_name  = op.properties["var_name"].data    
 
+        mode_map = {
+            "INPUT":  "r",
+            "OUTPUT": "w",
+            "EXTEND": "a",
+        }
+        fopen_mode = mode_map.get(mode.upper(), "r")
 
+        code = (
+            f'FILE *{var_name} = fopen("{path}", "{fopen_mode}");'
+            
+        )
+
+        verbatim_op = EmitC_VerbatimOp(
+            value=StringAttr(code),
+            operands=[],  
+        )
+        rewriter.replace_op(op, verbatim_op)
+
+@dataclass
+class ConvertCloseFileOp(RewritePattern):
+    @op_type_rewrite_pattern
+    def match_and_rewrite(self, op: CloseFileOp, rewriter: PatternRewriter):
+        file_name = op.properties["file_name"].data  
+        var_name  = op.properties["var_name"].data  
+
+        code = f'fclose({var_name}); '
+
+        verbatim_op = EmitC_VerbatimOp(
+            value=StringAttr(code),
+            operands=[],
+        )
+        rewriter.replace_op(op, verbatim_op)
 @dataclass
 class ConvertSubOp(RewritePattern):
     @op_type_rewrite_pattern
@@ -638,6 +680,8 @@ class ConvertCobolToEmitcPass(ModulePass):
                     and "string" not in includes_to_add
                 ):
                     includes_to_add.append("string")
+            elif isinstance(op, OpenFileOp) and "fstream" not in includes_to_add:
+                includes_to_add.append("fstream")
 
         for inc in includes_to_add:
             include_op = EmitC_IncludeOp(StringAttr(inc), UnitAttr())
@@ -676,6 +720,8 @@ class ConvertCobolToEmitcPass(ModulePass):
                     ConvertSetOp(),
                     ConvertStructOp(),
                     ConvertSubOp(),
+                    ConvertOpenFileOp(),   
+                    ConvertCloseFileOp(),
                     # RemoveUnusedOperations()
                 ]
             ),

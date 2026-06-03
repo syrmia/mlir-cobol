@@ -435,7 +435,49 @@ def handle_subtractStatement(elem):
     # first one: arg, second one: arg & res
     return {"SUB": idents}
 
+def handle_fileControlEntry(elem):
+    file_name = extractText(elem, "fileName")
+    assign = extractText(elem, "alphanumericLiteral")
+    assign = assign.strip('"').strip("'") if assign else ""
+    # print (f"FILE CONTROL ENTRY: file_name={file_name}, assign={assign}")
+    return {"FILE-SELECT": {"name": file_name, "assign": assign}}
 
+def handle_fileDescriptionEntry(elem):
+    file_name = extractText(elem, "cobolWord")
+    
+    return {"FILE-FD": {"name": file_name}}
+
+def handle_openStatement(elem):
+    mode = ""
+
+    tokens = [t.text for t in elem.findall(".//t") if t.text]
+    for tok in tokens:
+        u = tok.upper()
+        if u in ("OUTPUT", "INPUT", "I-O", "EXTEND"):
+            mode = u
+            break
+
+    file_name = extractText(elem, "cobolWord")
+
+    if not file_name:
+        file_name = ""
+    else:
+        file_name = file_name.split()[-1]
+
+    return {"OPEN": {"file": file_name, "mode": mode}}
+
+def handle_closeStatement(elem):
+    """
+    Handle:
+      CLOSE MYFILE
+    """
+    file_name = extractText(elem, "cobolWord")
+    if not file_name:
+        file_name = ""
+    else:
+        file_name = file_name.split()[-1]
+
+    return {"CLOSE": {"file_name": file_name}}
 # ─────────────────────────────────────────────────────────────────────────────
 #  Handlers dictionary
 # ─────────────────────────────────────────────────────────────────────────────
@@ -457,4 +499,8 @@ Handlers = {
     "setStatement": handle_setStatement,
     "stopStatement": handle_stopStatement,
     "subtractStatement": handle_subtractStatement,
+    "fileControlEntry": handle_fileControlEntry,
+    "fileDescriptionEntry": handle_fileDescriptionEntry,
+    "openStatement": handle_openStatement,
+    "closeStatement": handle_closeStatement
 }
