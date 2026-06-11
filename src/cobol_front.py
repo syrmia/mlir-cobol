@@ -376,20 +376,47 @@ def process_statements(
         elif operation.get("DISPLAY"):
             arg_list = operation.get("DISPLAY")
             ops = []
-            for arg in arg_list:
-                type = arg[1]
-                if type == "lit":
-                    op = ConstantOp(
-                        attributes={"value": StringAttr(arg[0])},
-                        result_types=[cobol_string(len(arg[0]))],
+            advancing = operation.get("advancing")
+            if advancing:
+                for arg in arg_list:
+                    type = arg[1]
+                    if type == "lit":
+                        op = ConstantOp(
+                            attributes={"value": StringAttr(arg[0])},
+                            result_types=[cobol_string(len(arg[0]))],
+                        )
+                        body.add_op(op)
+                        ops.append(op.result)
+                    elif arg[0].upper() == "ADVANCING":
+                        continue
+                    else:
+                        var = symbol_table[arg[0]]
+                        ops.append(var["result"])
+                    newline_op = ConstantOp(
+                        attributes={"value": StringAttr("\\n")},
+                        result_types=[cobol_string(1)],
                     )
-                    body.add_op(op)
-                    ops.append(op.result)
-                else:
-                    var = symbol_table[arg[0]]
-                    ops.append(var["result"])
-            disp_op = DisplayOp(operands=[ops])
-            body.add_op(disp_op)
+                    body.add_op(newline_op)
+                    ops.append(newline_op.result)
+                disp_op = DisplayOp(operands=[ops])
+                body.add_op(disp_op)
+            else:
+                for arg in arg_list:
+                    type = arg[1]
+                    if type == "lit":
+                        op = ConstantOp(
+                            attributes={"value": StringAttr(arg[0])},
+                            result_types=[cobol_string(len(arg[0]))],
+                        )
+                        body.add_op(op)
+                        ops.append(op.result)
+                    elif arg[0].upper() == "ADVANCING":
+                        continue
+                    else:
+                        var = symbol_table[arg[0]]
+                        ops.append(var["result"])
+                disp_op = DisplayOp(operands=[ops])
+                body.add_op(disp_op)
             continue
 
         elif operation.get("DIV"):
