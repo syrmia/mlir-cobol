@@ -174,36 +174,78 @@ def handle_dataDescriptionEntry(elem):
     frac_part = 0
 
     # X(n), A(n), 9(n) or X, 99,...
-    pictureString = extractText(elem, "pictureString")
-    type = (
-        "alpha"
-        if pictureString.startswith("A")
-        else (
-            "alnum"
-            if pictureString.startswith("X")
-            else "float" if "V" in pictureString else "int"
-        )
-    )
-    hasDef = pictureString.find("(") != -1
-    if hasDef:
-        if type == "int" or type == "alpha" or type == "alnum":
-            length = int(pictureString.split("(")[1].split(")")[0])
-        elif type == "float":
-            int_part = int(pictureString.split("9(")[1].split(")")[0])
-            frac_part = int(pictureString.split("V9(")[1].split(")")[0])
-            length = 0
-    else:
-        # count chars:
-        # to do ... float, string, int????
-        length = len(pictureString)
-
-    if pictureString == "":
-        type = "struct"
+    pictureString = extractText(elem, "pictureString") or ""
+    
+    pic = pictureString.upper().strip()
+    pic = pic.replace(" ", "")
+    if pic.startswith("PIC"):
+        pic = pic[3:]
+    if not pic:
         return {"STRUCT": {"name": name, "level": scope}}
 
+    if pic.startswith("A"):
+        var_type = "alpha"
+    elif pic.startswith("X"):
+        var_type = "alnum"
+    else:
+        var_type = "float" if "V" in pic else "int"
+
+    def count_digits(part: str) -> int:
+        total = 0
+        i = 0
+        while i < len(part):
+            if part[i] == "9":
+                if i + 1 < len(part) and part[i+1] == "(":
+                    j = part.find(")", i+2)
+                    if j == -1:
+                        total += 1
+                        i += 1
+                    else:
+                        rep = int(part[i+2:j])
+                        total += rep
+                        i = j + 1
+                else:
+                    total += 1
+                    i += 1
+            else:
+                i += 1
+        return total
+
+    hasDef = "(" in pic
+
+    if hasDef:
+        if var_type in ("int", "alpha", "alnum"):
+            inside = pic.split("(", 1)[1].split(")", 1)[0]
+            length = int(inside)
+
+        elif var_type == "float":
+            if "V" in pic:
+                int_str, frac_str = pic.split("V", 1)
+            else:
+                int_str, frac_str = pic, ""
+            int_len = count_digits(int_str)
+            frac_len = count_digits(frac_str)
+            length = int_len + frac_len
+            int_part = int_len
+            frac_part = frac_len
+    else:
+        if var_type in ("int", "float"):
+            length = pic.count("9")
+            if var_type == "float":
+                if "V" in pic:
+                    int_str, frac_str = pic.split("V", 1)
+                else:
+                    int_str, frac_str = pic, ""
+                int_len = count_digits(int_str)
+                frac_len = count_digits(frac_str)
+                length = int_len + frac_len
+                int_part = int_len
+                frac_part = frac_len
+        elif var_type in ("alpha", "alnum"):
+            length = pic.count("X") or 1
     if numeric_literal.strip() == "":
         literal = string_literal
-    elif type == "float":
+    elif var_type == "float":
         literal = float(numeric_literal)
     else:
         literal = int(numeric_literal)
@@ -212,7 +254,7 @@ def handle_dataDescriptionEntry(elem):
         "PICTURE": {
             "name": name,
             "literal": literal,
-            "type": type,
+            "type": var_type,
             "length": length,
             "level": scope,
             "int_part": int_part,

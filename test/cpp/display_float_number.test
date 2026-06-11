@@ -1,0 +1,21 @@
+# Test: GO TO with paragraphs: from COBOL to C++
+# REQUIRES: koopa, mlir-translate
+# RUN: %cobol-translate %S/../examples/display_float_number.cbl --emit=emitc -o %S/Output/display_float_number.mlir && \
+# RUN: %mlir-translate --mlir-to-cpp %S/Output/display_float_number.mlir | FileCheck %s
+
+
+#CHECK: #include <iostream>
+#CHECK: #include <cstdint>
+#CHECK: #include <string>
+#CHECK: void display() {
+#CHECK:   std::string v1 = "Duke";
+#CHECK:   int8_t v2 = 32;
+#CHECK:   float v3 = 32.4;
+#CHECK:   std::string v4 = "Name: ";
+#CHECK:   std::cout << v4 << v1;
+#CHECK:   std::string v5 = "Age: ";
+#CHECK:   std::cout << v5 << v2;
+#CHECK:   std::string v6 = "WEIGHT: ";
+#CHECK:   std::cout << v6 << v3;
+#CHECK:   return;
+#CHECK: }
