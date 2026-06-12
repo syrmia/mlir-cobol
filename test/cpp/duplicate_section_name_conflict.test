@@ -1,0 +1,3 @@
+# RUN: %cobol-translate %S/../examples/gnu12.cbl --emit=emitc 2>&1 | grep -v "Processing" | grep -v "Writing" | FileCheck %s
+
+# CHECK: SECTION error: redefinition of 'L'
