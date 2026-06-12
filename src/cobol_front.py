@@ -3,6 +3,8 @@
 cobol-front.py -> tiny COBOL→MLIR translator
 """
 
+# fmt: off
+
 from __future__ import annotations
 import sys, os, subprocess
 import xml.etree.ElementTree as ET
@@ -75,6 +77,14 @@ def cobol_decimal(d: int, s: int = 0):
 def cobol_record(name: str):
     return CobolRecordType(StringAttr(name))
 
+def count_9(part):
+    if isinstance(part, int):
+        return part
+    if "(" in part and ")" in part:
+        n = int(part[part.find("(") + 1: part.find(")")])
+    else:
+        n = len(part)
+    return n
 
 def run_koopa(src):
     koopa_path = os.environ.get("KOOPA_PATH", "")
@@ -309,14 +319,29 @@ symbol_table = {}
 defined_sections = set()
 
 # def process_statements(body: Block, lines: any, first_run: bool, module_ops: any = None) -> ModuleOp:
-def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
-    for op in lines:
-        s_name = op.get("SECTION")
-        if s_name:
-            defined_sections.add(s_name)
+def process_statements(
+    body: Block,
+    lines: any,
+    first_run: bool,
+    symbol_table: dict,
+    defined_paragraphs: set,
+    defined_sections: set,
+    defined_paragraphs1: set,
+    module_ops: Block = None,
+) -> ModuleOp:
     screen_registry = {}  
     in_screen_section = False
     current_screen = None
+
+    for op in lines:
+        if not op:
+            continue
+        p_name = op.get("PARAGRAPH")
+        if p_name:
+            defined_paragraphs.add(p_name)
+        s_name = op.get("SECTION")
+        if s_name:
+            defined_sections.add(s_name)
     start = 1 if first_run else 0
 
     # for group item declarations
@@ -339,6 +364,9 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
         
         elif operation.get("SECTION"):
             sec_name = operation.get("SECTION")
+            if sec_name in defined_sections or sec_name in defined_paragraphs:
+                    sys.stderr.write(f"SECTION error: redefinition of '{sec_name}'\n")
+                    sys.exit(0) 
             if sec_name.upper() == "SCREEN":
                 in_screen_section = True
                 current_screen = None
@@ -347,7 +375,39 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             in_screen_section = False
             current_screen = None
             continue
+ 
+        elif operation.get("INITIALIZE"):
+            var_name = operation.get("INITIALIZE")
+            
+            if var_name not in symbol_table:
+                sys.stderr.write(f"error: identifier '{var_name}' undefined\n")
+                sys.exit(1)
+            var_info = symbol_table[var_name]
+            dst = var_info["result"]
+            value = var_info["value"]
+            
+            if isinstance(value, int | float):
+                const_zero = ConstantOp(
+                    attributes={"value": IntegerAttr(0, 32)}, 
+                    result_types=[cobol_decimal(1, 0)]
+                )
+                body.add_op(const_zero)
+                body.add_op(MoveOp(operands=[const_zero.result, dst]))
+            
+            else:
+                length = var_info.get("length", 1)
+                spaces = " " * length
+
+                const_space = ConstantOp(
+                    attributes={"value": StringAttr.get(spaces)}, 
+                    result_types=[cobol_string(length)]
+                )
+                body.add_op(const_space)
+                body.add_op(MoveOp(operands=[const_space.result, dst]))
+            
+            continue
         
+
         elif operation.get("ADD"):
             vars = operation.get("ADD")
             lhs = symbol_table[vars[0]]["result"]
@@ -391,6 +451,7 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             ops = []
             first_name = arg_list[0][0]
             upper_name = first_name.upper()
+            advancing = operation.get("advancing")
             if upper_name in screen_registry:
                 for item in screen_registry[upper_name]:
                     val = item["value"]
@@ -403,10 +464,58 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
                     )
                     body.add_op(const_op)
                     ops.append(const_op.result)
+                if advancing:
+                    newline_op = ConstantOp(
+                        attributes={"value": StringAttr("\\n")},
+                        result_types=[cobol_string(1)],
+                    )
+                    body.add_op(newline_op)
+                    ops.append(newline_op.result)
 
                 disp_op = DisplayOp(operands=[ops])
                 body.add_op(disp_op)
                 continue
+            if advancing:
+                for arg in arg_list:
+                    type = arg[1]
+                    if type == "lit":
+                        op = ConstantOp(sta
+                            attributes={"value": StringAttr(arg[0])},
+                            result_types=[cobol_string(len(arg[0]))],
+                        )
+                        body.add_op(op)
+                        ops.append(op.result)
+                    elif arg[0].upper() == "ADVANCING":
+                        continue
+                    else:
+                        var = symbol_table[arg[0]]
+                        ops.append(var["result"])
+                    newline_op = ConstantOp(
+                        attributes={"value": StringAttr("\\n")},
+                        result_types=[cobol_string(1)],
+                    )
+                    body.add_op(newline_op)
+                    ops.append(newline_op.result)
+                disp_op = DisplayOp(operands=[ops])
+                body.add_op(disp_op)
+            else:
+                for arg in arg_list:
+                    type = arg[1]
+                    if type == "lit":
+                        op = ConstantOp(
+                            attributes={"value": StringAttr(arg[0])},
+                            result_types=[cobol_string(len(arg[0]))],
+                        )
+                        body.add_op(op)
+                        ops.append(op.result)
+                    elif arg[0].upper() == "ADVANCING":
+                        continue
+                    else:
+                        var = symbol_table[arg[0]]
+                        ops.append(var["result"])
+                disp_op = DisplayOp(operands=[ops])
+                body.add_op(disp_op)
+            continue
         elif operation.get("DIV"):
             vars = operation.get("DIV")
             lhs = symbol_table[vars[0]]["result"]
@@ -555,6 +664,13 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
 
         elif operation.get("PARAGRAPH"):
             para_name = operation.get("PARAGRAPH")
+            if (
+                para_name in symbol_table
+                or para_name in defined_sections
+                or para_name in defined_paragraphs1
+            ):
+                sys.stderr.write(f"PARAGRAF error: redefinition of '{para_name}'\n")
+                sys.exit(0)
             if para_name == "Main-Process":
                 continue
             para_region = Region(Block())
@@ -605,11 +721,21 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
 
         elif operation.get("MUL"):
             vars = operation.get("MUL")
-            lhs = symbol_table[vars[0]]["result"]
-            rhs = symbol_table[vars[1]]["result"]
-            res_type = symbol_table[vars[1]]["result"].type
-            op = MulOp(operands={lhs, rhs}, result_types=[res_type], properties={"kind": StringAttr("mul_by")})
-            body.add_op(op)
+            multiplier_name = vars[0]          # X
+            target_names = vars[1:]            # [Y, Z, ...]
+
+            multiplier = symbol_table[multiplier_name]["result"]
+
+            for tname in target_names:
+                target = symbol_table[tname]["result"]
+                res_type = target.type         
+
+                op = MulOp(
+                    operands=[multiplier, target],
+                    result_types=[res_type],
+                    properties={"kind": StringAttr("mul_by")},
+                )
+                body.add_op(op)
             continue
 
         elif operation.get("PICTURE"):
@@ -620,10 +746,31 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
             length = data.get("length")
             level = int(data.get("level"))
 
+            if name in symbol_table:
+                sys.stderr.write(f"PICTURE error: redefinition of '{name}'\n")
+                sys.exit(0)
             # for floats:
             int_part = data.get("int_part")
             frac_part = data.get("frac_part")
 
+            if int_part is None:
+                int_part = 0
+            if frac_part is None:
+                frac_part = 0
+            if length is None:
+                length = int_part
+            if literal is None or (isinstance(literal, str) and literal.strip() == ""):
+                if type == "int":
+                    literal = 0
+                elif type == "float":
+                    literal = 0.0    
+                else:
+                    literal = ""
+            if struct_regions_stack:
+                parent_name = struct_regions_stack[-1][2]
+                full_name = f"{parent_name}.{name}"
+            else:
+                full_name = name
             def get_float_type(digits: int) -> int:
                 if digits <= 4:
                     return 16
@@ -635,6 +782,12 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
                 literal = 0 if type == "int" or type == "float" else ""
 
             if type == "int":
+                if not isinstance(literal, int):
+                    try:
+                        literal = int(literal)
+                    except (ValueError, TypeError) as e:
+                        raise ValueError(f"Invalid integer literal: {literal!r}") from e
+
                 for width in (8, 16, 32, 64):
                     if 10**length < 2**(width-1):
                         decl_value = IntegerAttr(literal, width)
@@ -644,9 +797,15 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
                 decl_value = StringAttr(literal)
                 res_type = cobol_string(length)
             elif type == "float":
-                total_digits = int_part + frac_part
-                float_type = get_float_type(total_digits)
-                decl_value = FloatAttr(literal, float_type)
+                float_width = 64   # double
+                try:
+                    f_val = float(literal)
+                except (ValueError, TypeError) as e:
+                    raise ValueError(f"Invalid float literal: {literal!r}") from e
+                decl_value = FloatAttr(f_val, float_width)
+                int_part = count_9(int_part)    # '9(6)' -> 6
+                frac_part = count_9(frac_part)  # '9(2)' -> 2
+                length = int_part + frac_part 
                 res_type = cobol_decimal(int_part, frac_part)
             else:
                 # unknown type
@@ -668,7 +827,7 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
                 body.add_op(declOp)
 
             if literal:
-                symbol_table[name] = {
+                symbol_table[full_name] = {
                     "value": (
                         literal.strip("'")
                         if not isinstance(literal, int | float)
@@ -677,7 +836,7 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
                     "result": declOp.result,
                 }
             else:
-                symbol_table[name] = {"value": None, "result": declOp.result}
+                symbol_table[full_name] = {"value": None, "result": declOp.result}
             continue
 
         elif operation.get("STRUCT"):
@@ -704,10 +863,13 @@ def process_statements(body: Block, lines: any, first_run: bool) -> ModuleOp:
                 struct_regions_stack[-1][1].block.add_op(structOp)
             else:
                 # module_ops.append(structOp)
-                body.add_op(structOp)
+                if module_ops.first_op is not None:
+                    module_ops.insert_op_before(structOp, module_ops.first_op)
+                else:
+                    module_ops.add_op(structOp)
 
             symbol_table[name] = {"value": None, "result": structOp.result}
-            struct_regions_stack.append([op_data.get("level"), struct_body])
+            struct_regions_stack.append([level, struct_body, name])
             continue
 
         elif operation.get("STOP"):
@@ -750,7 +912,20 @@ def emit_cobol_dialect(lines):
     # For top-lvl declarations: structs and functions
     # module_ops = []
 
-    process_statements(body, lines, True)
+    symbol_table = {}
+    defined_paragraphs = set()
+    defined_sections = set()
+    defined_paragraphs1 = set()
+    process_statements(
+        body,
+        lines,
+        True,
+        symbol_table,
+        defined_paragraphs,
+        defined_sections,
+        defined_paragraphs1,
+        module.body.block,
+    )
     # process_statements(body, lines, True, module_ops)
 
     # module_ops.append(fun)

@@ -102,7 +102,10 @@ class CobolDecimalTypeConversion(TypeConversionPattern):
         length = type.digits.value.data
         scale = type.scale.value.data
         if scale:
-            return Float64Type()
+            if scale <= 4:
+                return Float32Type()
+            else:
+                return Float64Type()
         else:
             if length <= 2:
                 return EmitCIntegerType(8) 
