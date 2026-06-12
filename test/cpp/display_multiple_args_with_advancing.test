@@ -1,0 +1,16 @@
+# Test: GO TO with paragraphs: from COBOL to C++
+# REQUIRES: koopa, mlir-translate
+# RUN: %cobol-translate %S/../examples/display_multiple_args_with_advancing.cbl --emit=emitc -o %S/Output/display_multiple_args_with_advancing.mlir && \
+# RUN: %mlir-translate --mlir-to-cpp %S/Output/display_multiple_args_with_advancing.mlir | FileCheck %s
+
+#CHECK: #include <iostream>
+#CHECK: void prog() {
+#CHECK:   std::string v1 = "1";
+#CHECK:   std::string v2 = "\n";
+#CHECK:   std::string v3 = "1";
+#CHECK:   std::string v4 = "\n";
+#CHECK:   std::string v5 = "1";
+#CHECK:   std::string v6 = "\n";
+#CHECK:   std::cout << v1 << v2 << v3 << v4 << v5 << v6;
+#CHECK:   return;
+#CHECK: }

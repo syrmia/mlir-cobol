@@ -1,0 +1,13 @@
+# Test: GO TO with paragraphs: from COBOL to C++
+# REQUIRES: koopa, mlir-translate
+# RUN: %cobol-translate %S/../examples/display_screen_section_only_strings.cbl --emit=emitc -o %S/Output/display_screen_section_only_strings.mlir && \
+# RUN: %mlir-translate --mlir-to-cpp %S/Output/display_screen_section_only_strings.mlir | FileCheck %s
+
+
+#CHECK: #include <iostream>
+#CHECK: void prog() {
+#CHECK:  std::string v1 = "line=1, col=10, value ="HELLO". ";
+#CHECK:  std::string v2 = "line=2, col=5, value ="WORLD". ";
+#CHECK:  std::cout << v1 << v2;
+#CHECK:  return;
+#CHECK: }
