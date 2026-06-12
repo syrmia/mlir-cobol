@@ -1,0 +1,24 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. SUBPROG.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01  M PIC 9(4) VALUE 10.
+
+       PROCEDURE DIVISION.
+       SUB-PARA.
+           DISPLAY "In SUBPROG, M = " M
+           STOP RUN.  
+           
+     IDENTIFICATION DIVISION.
+       PROGRAM-ID. MAINPROG.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01  N PIC 9(4) VALUE 5.
+
+       PROCEDURE DIVISION.
+       MAIN-PARA.
+           DISPLAY "In MAINPROG, N = " N
+           CALL "SUBPROG"
+           STOP RUN.

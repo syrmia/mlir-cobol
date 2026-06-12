@@ -1,0 +1,21 @@
+# Test: GO TO with paragraphs: from COBOL to C++
+# REQUIRES: koopa, mlir-translate
+# RUN: %cobol-translate %S/../examples/display_sum_integer_and_float.cbl --emit=emitc -o %S/Output/display_sum_integer_and_float.mlir && \
+# RUN: %mlir-translate --mlir-to-cpp %S/Output/display_sum_integer_and_float.mlir | FileCheck %s
+
+
+#CHECK: #include <iostream>
+#CHECK: #include <cstdint>
+#CHECK: void display() {
+#CHECK:   int8_t v1 = 32;
+#CHECK:   float v2 = 32.4;
+#CHECK:   std::string v3 = "X: ";
+#CHECK:   std::cout << v3 << v1;
+#CHECK:   std::string v4 = "Y: ";
+#CHECK:   std::cout << v4 << v2;
+#CHECK:   int8_t v5 = v1;
+#CHECK:   float v6 = v2;
+#CHECK:   float v7 = v5 + v6;
+#CHECK:   v2 = v7;
+#CHECK:   return;
+#CHECK: }
