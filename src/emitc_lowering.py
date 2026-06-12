@@ -332,6 +332,18 @@ class ConvertDisplayOp(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: DisplayOp, rewriter: PatternRewriter):
         args = op.args
+        start_attr = op.start      
+        length_attr = op.length   
+        if start_attr is not None and length_attr is not None and len(args) == 1:
+            start = start_attr.value.data      
+            length = length_attr.value.data
+            string_arg = f"std::cout << {{}}.substr({start - 1}, {length});"
+            verbatim_op = EmitC_VerbatimOp(
+                value=StringAttr(string_arg),
+                operands=list(args),
+            )
+            rewriter.replace_op(op, verbatim_op)
+            return
         placeholders = " << ".join("{}" for a in args)
         string_arg = "std::cout << " + placeholders + ";"
         verbatim_op = EmitC_VerbatimOp(

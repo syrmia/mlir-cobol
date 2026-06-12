@@ -464,9 +464,10 @@ def process_statements(
         elif operation.get("DISPLAY"):
             arg_list = operation.get("DISPLAY")
             ops = []
+            attrs = {}
+            advancing = operation.get("advancing")
             first_name = arg_list[0][0]
             upper_name = first_name.upper()
-            advancing = operation.get("advancing")
             if upper_name in screen_registry:
                 for item in screen_registry[upper_name]:
                     val = item["value"]
@@ -490,46 +491,49 @@ def process_statements(
                 disp_op = DisplayOp(operands=[ops])
                 body.add_op(disp_op)
                 continue
-            if advancing:
-                for arg in arg_list:
-                    type = arg[1]
-                    if type == "lit":
-                        op = ConstantOp(sta
-                            attributes={"value": StringAttr(arg[0])},
-                            result_types=[cobol_string(len(arg[0]))],
-                        )
-                        body.add_op(op)
-                        ops.append(op.result)
-                    elif arg[0].upper() == "ADVANCING":
-                        continue
-                    else:
-                        var = symbol_table[arg[0]]
-                        ops.append(var["result"])
-                    newline_op = ConstantOp(
-                        attributes={"value": StringAttr("\\n")},
-                        result_types=[cobol_string(1)],
+            for arg in arg_list:
+                type = arg[1]
+
+                if type == "lit":
+                    op = ConstantOp(
+                        attributes={"value": StringAttr(arg[0])},
+                        result_types=[cobol_string(len(arg[0]))],
                     )
-                    body.add_op(newline_op)
-                    ops.append(newline_op.result)
-                disp_op = DisplayOp(operands=[ops])
-                body.add_op(disp_op)
-            else:
-                for arg in arg_list:
-                    type = arg[1]
-                    if type == "lit":
-                        op = ConstantOp(
-                            attributes={"value": StringAttr(arg[0])},
-                            result_types=[cobol_string(len(arg[0]))],
-                        )
-                        body.add_op(op)
-                        ops.append(op.result)
-                    elif arg[0].upper() == "ADVANCING":
+                    body.add_op(op)
+                    ops.append(op.result)
+
+                else:
+                    var_name = arg[0]
+   
+                    if var_name.upper() == "ADVANCING":
                         continue
+
+                    var = symbol_table[var_name]
+                    value = var["result"]
+
+                    if len(arg) == 2:
+                        # bez reference modifiera
+                        ops.append(value)
                     else:
-                        var = symbol_table[arg[0]]
-                        ops.append(var["result"])
+                        # sa start/length reference modifierom
+                        start = arg[2]
+                        length = arg[3]
+                        ops.append(value)
+                        attrs["start"] = IntegerAttr.from_int_and_width(start, 32)
+                        attrs["length"] = IntegerAttr.from_int_and_width(length, 32)
+            if advancing:
+                newline_op = ConstantOp(
+                    attributes={"value": StringAttr("\\n")},
+                    result_types=[cobol_string(1)],
+                )
+                body.add_op(newline_op)
+                ops.append(newline_op.result)
+            if attrs:
+                disp_op = DisplayOp(operands=[ops], attributes=attrs)
+            else:
                 disp_op = DisplayOp(operands=[ops])
-                body.add_op(disp_op)
+
+            body.add_op(disp_op)
             continue
         elif operation.get("DIV"):
             vars = operation.get("DIV")

@@ -293,24 +293,46 @@ def handle_displayStatement(elem):
     """
     args = []
     advancing = False
-    for child in elem:
-        tag = child.tag.lower()
-        if tag == "literal":
-            raw_text = "".join(t.text for t in child.findall(".//t") if t.text).strip()
-            parts = [p.strip() for p in raw_text.split(",") if p.strip()]
-            for p in parts:
-                args.append([p, "lit"])
-                
-        elif tag == "identifier":
-            name = "".join(t.text for t in child.findall(".//t") if t.text).strip()
-            if name.upper() == "ADVANCING":
-                advancing = True
-            elif name:
-                args.append([name, "var"])
+
+    literals_raw = extractText(elem, "alphanumericLiteral")
+
+
+    literals = [s for _, s in re.findall(r"""(['"])(.*?)\1""", literals_raw)]
+
+    for l in literals:
+        args.append([l, "lit"])
+
+    for ident in elem.findall(".//identifier"):
+        name = "".join(t.text for t in ident.findall(".//t") if t.text).strip()
+        if name.upper() == "ADVANCING":
+            advancing = True
+            continue
+        cw = ident.find(".//qualifiedDataName//dataName//cobolWord")
+        if cw is None:
+            cw = ident.find(".//cobolWord")
+        if cw is None:
+            continue
+        var_name = "".join(t.text for t in cw.findall("t") if t.text)
+        ref_mod = ident.find(".//referenceModifier")
+        if ref_mod is None:
+            args.append([var_name, "var"])
+            continue
+        ints = []
+        for il in ref_mod.findall(".//integerLiteral"):
+            txt = "".join(t.text for t in il.findall("t") if t.text)
+            if txt:
+                ints.append(int(txt))
+
+        if not ints:
+            args.append([var_name, "var"])
+        else:
+            start = ints[0]
+            length = ints[1] if len(ints) > 1 else None
+            args.append([var_name, "var", start, length])
+
     return {"DISPLAY": args,
             "advancing": advancing
         }
-
 
 def handle_divideStatement(elem):
     idents = extractVarNames(elem, "identifier")
