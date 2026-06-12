@@ -666,11 +666,21 @@ def process_statements(
 
         elif operation.get("MUL"):
             vars = operation.get("MUL")
-            lhs = symbol_table[vars[0]]["result"]
-            rhs = symbol_table[vars[1]]["result"]
-            res_type = symbol_table[vars[1]]["result"].type
-            op = MulOp(operands={lhs, rhs}, result_types=[res_type], properties={"kind": StringAttr("mul_by")})
-            body.add_op(op)
+            multiplier_name = vars[0]          # X
+            target_names = vars[1:]            # [Y, Z, ...]
+
+            multiplier = symbol_table[multiplier_name]["result"]
+
+            for tname in target_names:
+                target = symbol_table[tname]["result"]
+                res_type = target.type         
+
+                op = MulOp(
+                    operands=[multiplier, target],
+                    result_types=[res_type],
+                    properties={"kind": StringAttr("mul_by")},
+                )
+                body.add_op(op)
             continue
 
         elif operation.get("PICTURE"):
