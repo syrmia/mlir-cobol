@@ -1,0 +1,23 @@
+# Test: Hello World COBOL program with DISPLAY: from COBOL to C++
+# REQUIRES: koopa, mlir-translate
+# RUN: %cobol-translate %S/../examples/testing_call_instruction.cbl --emit=emitc -o %S/Output/testing_call_instruction.mlir | \
+# RUN: %mlir-translate --mlir-to-cpp %S/Output/testing_call_instruction.mlir | FileCheck %s
+
+
+#CHECK: #include <iostream>
+#CHECK: #include <cstdint>
+#CHECK: void SUBPROG() {
+#CHECK:   int16_t v1 = 10;
+#CHECK:   SUB_PARA:
+#CHECK:   std::string v2 = "In SUBPROG, M = ";
+#CHECK:   std::cout << v2 << v1;
+#CHECK:   return;
+#CHECK: }
+#CHECK: void MAINPROG() {
+#CHECK:   int16_t v1 = 5;
+#CHECK:   MAIN_PARA:
+#CHECK:   std::string v2 = "In MAINPROG, N = ";
+#CHECK:   std::cout << v2 << v1;
+#CHECK:   SUBPROG();
+#CHECK:   return;
+#CHECK: }

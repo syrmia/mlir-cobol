@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from xdsl.context import Context
-from xdsl.dialects import builtin
+from xdsl.dialects import builtin, func
 from xdsl.dialects.scf import IfOp, YieldOp
 from xdsl.dialects.builtin import (
     Block,
@@ -315,6 +315,11 @@ def process_expression(body, expression):
 
 # dictionary for declared and/or defined vars
 # var_name: { value, result }
+declared_callees: set[str] = set()
+def declare_callee_if_needed(module, name: str):
+    if name in declared_callees:
+        return
+    declared_callees.add(name)
 symbol_table = {}
 defined_sections = set()
 
@@ -414,6 +419,16 @@ def process_statements(
             rhs = symbol_table[vars[1]]["result"]
             res_type = symbol_table[vars[1]]["result"].type
             op = AddOp(operands={lhs, rhs}, result_types=[res_type], properties={"kind": StringAttr("add_to")})
+            body.add_op(op)
+            continue
+        elif operation.get("CALL"):
+            info = operation.get("CALL")
+            name = info["name"]
+            args = info["args"]
+            declare_callee_if_needed(module_ops, name)
+            arguments: list = []      
+            return_types: list = []   
+            op = func.CallOp(name, arguments, return_types)
             body.add_op(op)
             continue
 
@@ -537,12 +552,12 @@ def process_statements(
                 return_types=[],
             )
             then_block = ifOp.true_region.block
-            process_statements(then_block, data["then"], False)
+            process_statements(then_block, data["then"], False, module_ops)
             then_block.add_op(YieldOp())
 
             if else_region:
                 else_block = ifOp.false_region.block
-                process_statements(else_block, data["else"], False)
+                process_statements(else_block, data["else"], False, module_ops)
                 else_block.add_op(YieldOp())
 
             body.add_op(ifOp)
@@ -572,7 +587,7 @@ def process_statements(
             # Build the loop body region
             loop_region = Region(Block())
             loop_block = loop_region.block
-            process_statements(loop_block, loop_body_stmts, False)
+            process_statements(loop_block, loop_body_stmts, False, module_ops)
 
             perform_op = PerformOp(
                 operands=[times_result],
@@ -596,7 +611,7 @@ def process_statements(
 
                 if case["other"]:
                     # WHEN OTHER — just emit the statements directly
-                    process_statements(target_body, case["stmts"], False)
+                    process_statements(target_body, case["stmts"], False, module_ops)
                     return
 
                 # Create comparison: subject == value
@@ -634,7 +649,7 @@ def process_statements(
                 # Build then region
                 then_region = Region(Block())
                 then_block = then_region.block
-                process_statements(then_block, case["stmts"], False)
+                process_statements(then_block, case["stmts"], False, module_ops)
                 then_block.add_op(YieldOp())
 
                 # Build else region with remaining cases (recursive)
@@ -900,31 +915,44 @@ def process_statements(
 
 
 def emit_cobol_dialect(lines):
+    all_programs = []
+    current = []
+
+    for stmt in lines:
+        if "PROGRAM-ID" in stmt:
+            if current:
+                all_programs.append(current)
+                current = []
+        current.append(stmt)
+    if current:
+        all_programs.append(current)
     ctx = Context()
     ctx.register_dialect("builtin", lambda c: builtin.Builtin(c))
     ctx.register_dialect("cobol", lambda c: COBOL)
-
-    # program-id should always be the first
-    prog_id = lines[0]["PROGRAM-ID"]
-
     module = ModuleOp([])
-    fun = FunctionOp(
-        attributes={
-            "sym_name": StringAttr(prog_id),
-            "function_type": FunctionType.from_lists([], []),
-        },
-        regions=[builtin.Region(builtin.Block())],
-    )
-    body = fun.body.block
-    module.body.block.add_op(fun)
+    # program-id should always be the first
+    for prog_lines in all_programs:
+        assert (
+            "PROGRAM-ID" in prog_lines[0]
+        ), "Expected PROGRAM-ID as first element in program lines"
 
+        prog_id = prog_lines[0]["PROGRAM-ID"]
+
+        fun = FunctionOp(
+            attributes={
+                "sym_name": StringAttr(prog_id),
+                "function_type": FunctionType.from_lists([], []),
+            },
+            regions=[builtin.Region(builtin.Block())],
+        )
+        body = fun.body.block
     # For top-lvl declarations: structs and functions
     # module_ops = []
-
     symbol_table = {}
     defined_paragraphs = set()
     defined_sections = set()
     defined_paragraphs1 = set()
+    declared_callees.clear()
     process_statements(
         body,
         lines,
@@ -935,6 +963,7 @@ def emit_cobol_dialect(lines):
         defined_paragraphs1,
         module.body.block,
     )
+    module.body.block.add_op(fun)
     # process_statements(body, lines, True, module_ops)
 
     # module_ops.append(fun)
