@@ -176,6 +176,7 @@ def handle_dataDescriptionEntry(elem):
     frac_part = 0
 
     # X(n), A(n), 9(n) or X, 99,...
+
     pictureString = extractText(elem, "pictureString") or ""
     
     pic = pictureString.upper().strip()
@@ -189,6 +190,11 @@ def handle_dataDescriptionEntry(elem):
         var_type = "alpha"
     elif pic.startswith("X"):
         var_type = "alnum"
+    elif pic.startswith("N"):
+        var_type = "national"
+    elif pic.startswith("B"):
+        var_type = "blanco"
+
     else:
         var_type = "float" if "V" in pic else "int"
 
@@ -216,7 +222,7 @@ def handle_dataDescriptionEntry(elem):
     hasDef = "(" in pic
 
     if hasDef:
-        if var_type in ("int", "alpha", "alnum"):
+        if var_type in ("int", "alpha", "alnum", "national", "blanco"):
             inside = pic.split("(", 1)[1].split(")", 1)[0]
             length = int(inside)
 
@@ -243,8 +249,16 @@ def handle_dataDescriptionEntry(elem):
                 length = int_len + frac_len
                 int_part = int_len
                 frac_part = frac_len
-        elif var_type in ("alpha", "alnum"):
-            length = pic.count("X") or 1
+        elif var_type in ("alpha", "alnum", "national", "blanco"):
+            if var_type == "alpha":
+                char = "A"
+            elif var_type == "alnum":
+                char = "X"
+            elif var_type == "national":
+                char = "N"
+            else:
+                char = "B"
+            length = pic.count(char) or 1
     if numeric_literal.strip() == "":
         literal = string_literal
     elif var_type == "float":
