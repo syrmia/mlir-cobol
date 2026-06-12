@@ -1,0 +1,3 @@
+# RUN: %cobol-translate %S/../examples/gnu10.cbl --emit=emitc 2>&1 | grep -v "Processing" | grep -v "Writing" | FileCheck %s
+
+# CHECK: PARAGRAF error: redefinition of 'prog'

@@ -5,6 +5,8 @@ by their corresponding handlers, which return a structure representing the
 statement and its associated data.
 """
 
+
+# fmt: off
 import re
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -174,49 +176,110 @@ def handle_dataDescriptionEntry(elem):
     frac_part = 0
 
     # X(n), A(n), 9(n) or X, 99,...
-    pictureString = extractText(elem, "pictureString")
-    type = (
-        "alpha"
-        if pictureString.startswith("A")
-        else (
-            "alnum"
-            if pictureString.startswith("X")
-            else "float" if "V" in pictureString else "int"
-        )
-    )
-    hasDef = pictureString.find("(") != -1
-    if hasDef:
-        if type == "int" or type == "alpha" or type == "alnum":
-            length = int(pictureString.split("(")[1].split(")")[0])
-        elif type == "float":
-            int_part = int(pictureString.split("9(")[1].split(")")[0])
-            frac_part = int(pictureString.split("V9(")[1].split(")")[0])
-            length = 0
-    else:
-        # count chars:
-        # to do ... float, string, int????
-        length = len(pictureString)
 
-    if pictureString == "":
-        type = "struct"
+    pictureString = extractText(elem, "pictureString") or ""
+    
+    pic = pictureString.upper().strip()
+    pic = pic.replace(" ", "")
+    if pic.startswith("PIC"):
+        pic = pic[3:]
+    if not pic:
         return {"STRUCT": {"name": name, "level": scope}}
 
+    if pic.startswith("A"):
+        var_type = "alpha"
+    elif pic.startswith("X"):
+        var_type = "alnum"
+    elif pic.startswith("N"):
+        var_type = "national"
+    elif pic.startswith("B"):
+        var_type = "blanco"
+
+    else:
+        var_type = "float" if "V" in pic else "int"
+
+    def count_digits(part: str) -> int:
+        total = 0
+        i = 0
+        while i < len(part):
+            if part[i] == "9":
+                if i + 1 < len(part) and part[i+1] == "(":
+                    j = part.find(")", i+2)
+                    if j == -1:
+                        total += 1
+                        i += 1
+                    else:
+                        rep = int(part[i+2:j])
+                        total += rep
+                        i = j + 1
+                else:
+                    total += 1
+                    i += 1
+            else:
+                i += 1
+        return total
+
+    hasDef = "(" in pic
+
+    if hasDef:
+        if var_type in ("int", "alpha", "alnum", "national", "blanco"):
+            inside = pic.split("(", 1)[1].split(")", 1)[0]
+            length = int(inside)
+
+        elif var_type == "float":
+            if "V" in pic:
+                int_str, frac_str = pic.split("V", 1)
+            else:
+                int_str, frac_str = pic, ""
+            int_len = count_digits(int_str)
+            frac_len = count_digits(frac_str)
+            length = int_len + frac_len
+            int_part = int_len
+            frac_part = frac_len
+    else:
+        if var_type in ("int", "float"):
+            length = pic.count("9")
+            if var_type == "float":
+                if "V" in pic:
+                    int_str, frac_str = pic.split("V", 1)
+                else:
+                    int_str, frac_str = pic, ""
+                int_len = count_digits(int_str)
+                frac_len = count_digits(frac_str)
+                length = int_len + frac_len
+                int_part = int_len
+                frac_part = frac_len
+        elif var_type in ("alpha", "alnum", "national", "blanco"):
+            if var_type == "alpha":
+                char = "A"
+            elif var_type == "alnum":
+                char = "X"
+            elif var_type == "national":
+                char = "N"
+            else:
+                char = "B"
+            length = pic.count(char) or 1
     if numeric_literal.strip() == "":
         literal = string_literal
-    elif type == "float":
+    elif var_type == "float":
         literal = float(numeric_literal)
     else:
         literal = int(numeric_literal)
+    is_external = False
+    external_attr = extractText(elem, "externalClause")
+    if external_attr is not None:
+        is_external = external_attr.lower() == "external"
 
     return {
         "PICTURE": {
             "name": name,
             "literal": literal,
-            "type": type,
+            "type": var_type,
             "length": length,
             "level": scope,
             "int_part": int_part,
             "frac_part": frac_part,
+            "is_external": is_external
         }
     }
 
@@ -229,6 +292,8 @@ def handle_displayStatement(elem):
     value along with its type: 'var' for identifiers or 'lit' for literals.
     """
     args = []
+    advancing = False
+
     literals_raw = extractText(elem, "alphanumericLiteral")
 
 
@@ -238,6 +303,10 @@ def handle_displayStatement(elem):
         args.append([l, "lit"])
 
     for ident in elem.findall(".//identifier"):
+        name = "".join(t.text for t in ident.findall(".//t") if t.text).strip()
+        if name.upper() == "ADVANCING":
+            advancing = True
+            continue
         cw = ident.find(".//qualifiedDataName//dataName//cobolWord")
         if cw is None:
             cw = ident.find(".//cobolWord")
@@ -261,8 +330,9 @@ def handle_displayStatement(elem):
             length = ints[1] if len(ints) > 1 else None
             args.append([var_name, "var", start, length])
 
-    return {"DISPLAY": args}
-
+    return {"DISPLAY": args,
+            "advancing": advancing
+        }
 
 def handle_divideStatement(elem):
     idents = extractVarNames(elem, "identifier")
@@ -302,6 +372,9 @@ def handle_moveStatement(elem):
 
     return {"MOVE": [var_name, value]}
 
+def handle_section(elem):
+    name = extractText(elem, "sectionName")
+    return {"SECTION": name}
 
 def handle_multiplyStatement(elem):
     idents = extractVarNames(elem, "identifier")
@@ -441,7 +514,6 @@ def handle_programIdParagraph(elem):
 
 def handle_setStatement(elem):
     var = extractText(elem, "cobolWord")
-    # dodati u zavisnosti od tipa vrednosti.... tag za bool vrednosti je <true>
     val = extractText(elem, "true")
     return {"SET": [var, val]}
 
@@ -455,8 +527,71 @@ def handle_subtractStatement(elem):
     idents = extractVarNames(elem, "identifier")
     # first one: arg, second one: arg & res
     return {"SUB": idents}
+def handle_initializeStatement(elem):
+    var = extractText(elem, "cobolWord")
+    if not var:
+        ident = elem.find(".//identifier")
+        var = "".join(t.text for t in ident.findall(".//t") if t.text).strip()
 
+    return {"INITIALIZE": var}
 
+def handle_sectionHeader(elem):
+    name_node = elem.find(".//header")
+    raw = "".join(t.text for t in name_node.findall(".//t") if t.text)
+    name = raw.replace("SECTION", "").replace(".", "").strip()
+    section_dict = {"SECTION": name.upper()}
+    if name.upper() == "SCREEN":
+        section_dict["IS_SCREEN_SECTION"] = True
+    return section_dict
+
+def handle_screenDescriptionEntry(elem):
+    level = None
+    level_node = elem.find("./levelNumber")
+    if level_node is not None:
+        ts = [t.text for t in level_node.findall(".//t") if t.text]
+        level = "".join(ts) if ts else None
+    name = None
+    name_node = elem.find("./screenName")
+    if name_node is not None:
+        ts = [t.text for t in name_node.findall(".//t") if t.text]
+        name = "".join(ts) if ts else None
+    line = None
+    line_int_node = elem.find("./lineClause/integer")
+    if line_int_node is not None:
+        ts = [t.text for t in line_int_node.findall(".//t") if t.text]
+        line = "".join(ts) if ts else None
+    column = None
+    col_int_node = elem.find("./columnClause/integer")
+    if col_int_node is not None:
+        ts = [t.text for t in col_int_node.findall(".//t") if t.text]
+        column = "".join(ts) if ts else None
+    picture = None
+    pic_node = elem.find("./pictureClause/pictureString")
+    if pic_node is not None:
+        ts = [t.text for t in pic_node.findall(".//t") if t.text]
+        picture = "".join(ts) if ts else None
+    value = None
+    val_node = elem.find("./screenValueClause/literal/literalValue")
+    if val_node is not None:
+        ts = [t.text for t in val_node.findall(".//t") if t.text]
+        value = "".join(ts) if ts else None
+    return {
+        "SCREEN_ENTRY":{
+        "level": level,
+        "name": name,
+        "line": line,
+        "column": column,
+        "picture": picture,
+        "value": value}
+    }
+
+def handle_callStatement(elem):
+    literal = elem.find(".//alphanumericLiteral/t")
+    if literal is None or literal.text is None:
+        raise ValueError("CALL without literal program name not supported yet")
+    name = literal.text.strip().strip('"')
+    args = []
+    return {"CALL": {"name": name, "args": args}}
 # ─────────────────────────────────────────────────────────────────────────────
 #  Handlers dictionary
 # ─────────────────────────────────────────────────────────────────────────────
@@ -478,4 +613,9 @@ Handlers = {
     "setStatement": handle_setStatement,
     "stopStatement": handle_stopStatement,
     "subtractStatement": handle_subtractStatement,
+    "callStatement": handle_callStatement
+    "screenSection": handle_sectionHeader,
+    "screenDescriptionEntry": handle_screenDescriptionEntry
+    "initializeStatement": handle_initializeStatement,
+    "section": handle_section
 }

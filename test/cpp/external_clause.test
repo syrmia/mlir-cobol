@@ -1,0 +1,15 @@
+# Test: GO TO with paragraphs: from COBOL to C++
+# REQUIRES: koopa, mlir-translate
+# RUN: %cobol-translate %S/../examples/external_clause.cbl --emit=emitc -o %S/Output/external_clause.mlir && \
+# RUN: %mlir-translate --mlir-to-cpp %S/Output/external_clause.mlir | FileCheck %s
+
+# CHECK: #include <iostream>
+# CHECK: #include <cstdint>
+# CHECK: void prog() {
+# CHECK:   int8_t v1 = 5;
+# CHECK:   int8_t v2 = 0;
+# CHECK:   extern int8_t v3;
+# CHECK:   extern int8_t v4;
+# CHECK:   std::cout << v1;
+# CHECK:   return;
+# CHECK: }
