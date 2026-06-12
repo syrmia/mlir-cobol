@@ -1,0 +1,26 @@
+# Test: GO TO with paragraphs: from COBOL to C++
+# REQUIRES: koopa, mlir-translate
+# RUN: %cobol-translate %S/../examples/double_multiply_in_one_line.cbl --emit=emitc -o %S/Output/double_multiply_in_one_line.mlir && \
+# RUN: %mlir-translate --mlir-to-cpp %S/Output/double_multiply_in_one_line.mlir | FileCheck %s
+
+
+#CHECK: #include <iostream>
+#CHECK: #include <cstdint>
+#CHECK: void display() {
+#CHECK:  int8_t v1 = 5;
+#CHECK:   int8_t v2 = 2;
+#CHECK:   int8_t v3 = 3;
+#CHECK:   int8_t v4 = v1;
+#CHECK:   int8_t v5 = v2;
+#CHECK:   int8_t v6 = v4 * v5;
+#CHECK:   v2 = v6;
+#CHECK:   int8_t v7 = v1;
+#CHECK:   int8_t v8 = v3;
+#CHECK:   int8_t v9 = v7 * v8;
+#CHECK:   v3 = v9;
+#CHECK:   std::string v10 = "X=";
+#CHECK:   std::string v11 = " Y=";
+#CHECK:   std::string v12 = " Z=";
+#CHECK:   std::cout << v10 << v1 << v11 << v2 << v12 << v3;
+#CHECK:   return;
+#CHECK: }

@@ -1,0 +1,14 @@
+# Test: GO TO with paragraphs: from COBOL to C++
+# REQUIRES: koopa, mlir-translate
+# RUN: %cobol-translate %S/../examples/bxx_type.cbl --emit=emitc -o %S/Output/bxx_type.mlir && \
+# RUN: %mlir-translate --mlir-to-cpp %S/Output/bxx_type.mlir | FileCheck %s
+
+#CHECK: #include <iostream>
+#CHECK: #include <string>
+#CHECK: void BXX_NNN_PIC_TEST() {
+#CHECK:   std::string v1 = " dd";
+#CHECK:   std::string v2 = " bbbbbbb";
+#CHECK:   std::cout << v1;
+#CHECK:   std::cout << v2;
+#CHECK:   return;
+#CHECK: }
