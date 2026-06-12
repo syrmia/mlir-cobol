@@ -760,6 +760,7 @@ def process_statements(
             type = data.get("type")
             length = data.get("length")
             level = int(data.get("level"))
+            external = data.get("is_external")
 
             if name in symbol_table:
                 sys.stderr.write(f"PICTURE error: redefinition of '{name}'\n")
@@ -827,7 +828,7 @@ def process_statements(
                 pass
 
             declOp = DeclareOp(
-                attributes={"value": decl_value, "level": IntegerAttr(int(level), 8)},
+                attributes={"value": decl_value, "level": IntegerAttr(int(level), 8), "external":  IntegerAttr(1 if external else 0, 1)},
                 result_types=[res_type],
             )
 
@@ -849,9 +850,10 @@ def process_statements(
                         else literal
                     ),
                     "result": declOp.result,
+                    "external": external
                 }
             else:
-                symbol_table[full_name] = {"value": None, "result": declOp.result}
+                symbol_table[name] = {"value": None, "result": declOp.result, "external": external}
             continue
 
         elif operation.get("STRUCT"):

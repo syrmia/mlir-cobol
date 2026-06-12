@@ -238,8 +238,25 @@ class ConvertConstantOp(RewritePattern):
         rewriter.replace_op(op, const_op)
 
 
+from xdsl.dialects.builtin import IntegerType, AnyFloat
+
+def map_type_to_c(t) -> str:
+    if str(t) == "i8":
+        return "int8_t"
+    if str(t) == "i16":
+        return "int16_t"
+    if str(t) == "i32":
+        return "int32_t"
+    if str(t) == "i64":
+        return "int64_t"
+    if str(t) == "f32":
+        return "float"
+    if str(t) == "f64":
+        return "double"
+    return "int"
 @dataclass
 class ConvertDeclareOp(RewritePattern):
+    var_counter: int = 1
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: DeclareOp, rewriter: PatternRewriter):
         sym_value = op.attributes["value"]
@@ -247,13 +264,33 @@ class ConvertDeclareOp(RewritePattern):
 
         # print("sym_name ", sym_value)
         # print("op res type ", op_res_type)
+        is_external_attr = op.attributes.get("external")
+        is_external = False
+        if is_external_attr is not None:
+            is_external = is_external_attr.value.data != 0
+        name_attr = op.attributes.get("name")
+        if name_attr is not None:
+            var_name = name_attr.data
+        else:
+            var_name = f"v{self.var_counter}"
+            self.var_counter += 1
+        if is_external:
+            c_type = map_type_to_c(op.result.type)
+            line = f"extern {c_type} {var_name};"
+            extern_op = EmitC_VerbatimOp(
+                value=StringAttr(line),
+                operands=[],
+            )
+            rewriter.insert_op(extern_op)
+            rewriter.erase_op(op)
+            return
+        emit_ops = []
 
         if isinstance(op_res_type, IntegerType):
             var_op = EmitC_VariableOp(
                 EmitC_OpaqueAttr(StringAttr(str(sym_value.value.data))),
                 EmitC_LValueType(op_res_type),
             )
-            rewriter.replace_op(op, var_op)
 
         elif isinstance(op_res_type, AnyFloat):
             # print("Float je")
@@ -261,7 +298,6 @@ class ConvertDeclareOp(RewritePattern):
                 EmitC_OpaqueAttr(StringAttr(str(sym_value.value.data))),
                 EmitC_LValueType(op_res_type),
             )
-            rewriter.replace_op(op, var_op)
 
         elif isinstance(op_res_type, EmitC_LValueType):
             # either std::string or custom user type (struct/class)
@@ -274,7 +310,6 @@ class ConvertDeclareOp(RewritePattern):
                     EmitC_OpaqueAttr(StringAttr('"' + fixed_string + '"')), op_res_type
                 )
                 # print(var_op)
-                rewriter.replace_op(op, var_op)
             else:
                 # custom type (struct)
                 # print("Struct je")
@@ -282,11 +317,14 @@ class ConvertDeclareOp(RewritePattern):
                     EmitC_OpaqueAttr(StringAttr(opaque_type)), op_res_type
                 )
                 # print(var_op)
-                rewriter.replace_op(op, var_op)
         else:
             print("Type still not supported: ", op_res_type)
 
-        return
+            return
+        if is_external_attr is not None:
+            var_op.attributes["is_external"] = is_external_attr
+        emit_ops.append(var_op)
+        rewriter.replace_op(op, emit_ops)
 
 
 @dataclass

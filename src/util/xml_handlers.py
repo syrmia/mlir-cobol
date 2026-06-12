@@ -265,6 +265,10 @@ def handle_dataDescriptionEntry(elem):
         literal = float(numeric_literal)
     else:
         literal = int(numeric_literal)
+    is_external = False
+    external_attr = extractText(elem, "externalClause")
+    if external_attr is not None:
+        is_external = external_attr.lower() == "external"
 
     return {
         "PICTURE": {
@@ -275,6 +279,7 @@ def handle_dataDescriptionEntry(elem):
             "level": scope,
             "int_part": int_part,
             "frac_part": frac_part,
+            "is_external": is_external
         }
     }
 
